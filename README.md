@@ -48,10 +48,7 @@ cd lattice-flow
 npm install
 ```
 
-> **Note for Windows:** After `npm install`, native modules (SQLite, bcrypt) are compiled for the installed Node version. If you see an error like `NODE_MODULE_VERSION mismatch`, run:
-> ```bash
-> npx @electron/rebuild
-> ```
+`npm install` automatically recompiles native modules (SQLite, bcrypt) for Electron via the `postinstall` script — no extra steps needed.
 
 ---
 
