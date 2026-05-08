@@ -1,7 +1,7 @@
 import Database from 'better-sqlite3'
 import { app } from 'electron'
 import { join } from 'path'
-import { existsSync, mkdirSync, copyFileSync } from 'fs'
+import { existsSync, mkdirSync, copyFileSync, unlinkSync, writeFileSync } from 'fs'
 
 let db: Database.Database | null = null
 
@@ -21,21 +21,33 @@ function dbHasData(dbPath: string): boolean {
 function resolveDbPath(): string {
   const userDataDir = app.getPath('userData')
   const currentPath = join(userDataDir, 'pm-app-v2.db')
+  const migrationFlagPath = join(userDataDir, '.migrated-from-pm-app')
 
-  // Only use current path if it actually has data
-  if (existsSync(currentPath) && dbHasData(currentPath)) return currentPath
-
-  // One-time migration: copy DB from pre-rename location (pm-app → lattice-flow)
-  const legacyPath = join(app.getPath('appData'), 'pm-app', 'pm-app-v2.db')
-  if (existsSync(legacyPath) && dbHasData(legacyPath)) {
+  // Migration runs exactly once (flag file guards re-runs).
+  // We do it unconditionally so the legacy DB always wins on first boot,
+  // even if an empty/test DB already exists at the current path.
+  if (!existsSync(migrationFlagPath)) {
     if (!existsSync(userDataDir)) mkdirSync(userDataDir, { recursive: true })
-    copyFileSync(legacyPath, currentPath)
-    for (const ext of ['-shm', '-wal']) {
-      const legacyWal = legacyPath + ext
-      if (existsSync(legacyWal)) {
-        try { copyFileSync(legacyWal, currentPath + ext) } catch { /* non-fatal */ }
+
+    const legacyPath = join(app.getPath('appData'), 'pm-app', 'pm-app-v2.db')
+    if (existsSync(legacyPath) && dbHasData(legacyPath)) {
+      // Checkpoint WAL into the main file so the copy is a clean snapshot.
+      try {
+        const tmp = new (require('better-sqlite3') as typeof Database)(legacyPath)
+        tmp.pragma('wal_checkpoint(TRUNCATE)')
+        tmp.close()
+      } catch { /* non-fatal */ }
+
+      copyFileSync(legacyPath, currentPath)
+
+      // Remove any stale journal files at the destination.
+      for (const ext of ['-shm', '-wal']) {
+        try { if (existsSync(currentPath + ext)) unlinkSync(currentPath + ext) } catch {}
       }
     }
+
+    // Write the flag regardless — prevents re-checking on every subsequent boot.
+    try { writeFileSync(migrationFlagPath, new Date().toISOString()) } catch {}
   }
 
   return currentPath

@@ -13,7 +13,15 @@ export async function checkPath(dirPath: string): Promise<{ ok: boolean; error?:
 }
 
 export async function listDirectory(dirPath: string): Promise<FileEntry[]> {
-  const dirents = await readdir(dirPath, { withFileTypes: true })
+  let dirents: { name: string; isDirectory(): boolean }[]
+  try {
+    dirents = await readdir(dirPath, { withFileTypes: true })
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code
+    if (code === 'ENOENT') throw new Error('Folder not found — it may have been moved or deleted.')
+    if (code === 'EACCES' || code === 'EPERM') throw new Error('Permission denied.')
+    throw err
+  }
 
   const entries = await Promise.all(
     dirents.map(async (d): Promise<FileEntry | null> => {
