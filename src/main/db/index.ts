@@ -5,15 +5,29 @@ import { existsSync, mkdirSync, copyFileSync } from 'fs'
 
 let db: Database.Database | null = null
 
+function dbHasData(dbPath: string): boolean {
+  try {
+    const tmp = new (require('better-sqlite3') as typeof Database)(dbPath, { readonly: true })
+    const row = tmp.prepare("SELECT COUNT(*) as n FROM sqlite_master WHERE type='table' AND name='organizations'").get() as { n: number }
+    if (row.n === 0) { tmp.close(); return false }
+    const org = tmp.prepare('SELECT COUNT(*) as n FROM organizations').get() as { n: number }
+    tmp.close()
+    return org.n > 0
+  } catch {
+    return false
+  }
+}
+
 function resolveDbPath(): string {
   const userDataDir = app.getPath('userData')
   const currentPath = join(userDataDir, 'pm-app-v2.db')
 
-  if (existsSync(currentPath)) return currentPath
+  // Only use current path if it actually has data
+  if (existsSync(currentPath) && dbHasData(currentPath)) return currentPath
 
   // One-time migration: copy DB from pre-rename location (pm-app → lattice-flow)
   const legacyPath = join(app.getPath('appData'), 'pm-app', 'pm-app-v2.db')
-  if (existsSync(legacyPath)) {
+  if (existsSync(legacyPath) && dbHasData(legacyPath)) {
     if (!existsSync(userDataDir)) mkdirSync(userDataDir, { recursive: true })
     copyFileSync(legacyPath, currentPath)
     for (const ext of ['-shm', '-wal']) {
