@@ -12,7 +12,7 @@ import {
   isLegacyMsalUser, setRecoveryCodeHash, getRecoveryCodeHash
 } from '../db/users'
 
-const SESSION_TTL_MS = 8 * 60 * 60 * 1000 // 8 hours
+const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000 // 30 days
 const MAX_FAILED_ATTEMPTS = 5
 const LOCKOUT_MINUTES = 15
 
@@ -44,6 +44,8 @@ function readSession(): number | null {
       clearSessionFile()
       return null
     }
+    // Refresh expiry on each successful read so active users never get logged out
+    saveSession(payload.userId as number)
     return payload.userId as number
   } catch {
     clearSessionFile()
