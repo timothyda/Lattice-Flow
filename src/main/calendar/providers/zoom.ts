@@ -40,7 +40,7 @@ export async function connectZoom(): Promise<{
     'https://api.zoom.us/v2/users/me', tokens.accessToken
   )
 
-  const label = profile.display_name ?? `${profile.first_name ?? ''} ${profile.last_name ?? ''}`.trim() || profile.email
+  const label = profile.display_name ?? (`${profile.first_name ?? ''} ${profile.last_name ?? ''}`.trim() || profile.email)
   return { email: profile.email, label, ...tokens }
 }
 
