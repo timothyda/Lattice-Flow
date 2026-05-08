@@ -1,4 +1,4 @@
-# PM App
+# Lattice Flow
 
 A self-hosted project management desktop application built with Electron, React, TypeScript, and SQLite. 
 Designed for creative agencies and small teams — manage clients, projects, tasks, time tracking, meetings, 
@@ -43,8 +43,8 @@ node --version   # should print v20.x.x
 ## Installation
 
 ```bash
-git clone https://github.com/your-org/pm-app.git
-cd pm-app
+git clone https://github.com/your-org/lattice-flow.git
+cd lattice-flow
 npm install
 ```
 

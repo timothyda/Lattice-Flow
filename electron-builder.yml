@@ -1,12 +1,12 @@
-appId: com.pm-app
-productName: PM App
+appId: com.latticeflow
+productName: Lattice Flow
 directories:
   buildResources: build
   output: dist
 files:
   - out/**/*
 win:
-  executableName: pm-app
+  executableName: lattice-flow
 nsis:
   artifactName: ${name}-${version}-setup.${ext}
   shortcutName: ${productName}

@@ -1,7 +1,7 @@
 {
-  "name": "pm-app",
+  "name": "lattice-flow",
   "version": "1.0.0",
-  "description": "Project Management App",
+  "description": "Lattice Flow — Project Management for Creative Teams",
   "main": "out/main/index.js",
   "scripts": {
     "dev": "electron-vite dev",

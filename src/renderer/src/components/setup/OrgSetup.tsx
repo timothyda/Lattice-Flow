@@ -65,9 +65,9 @@ function OrgSetup({ onComplete }: Props): JSX.Element {
   return (
     <div className="org-setup-screen">
       <div className="org-setup-card">
-        <div className="org-setup-logo">PM</div>
+        <div className="org-setup-logo">LF</div>
 
-        <h1 className="org-setup-title">Welcome to PM App</h1>
+        <h1 className="org-setup-title">Welcome to Lattice Flow</h1>
         <p className="org-setup-subtitle">
           {step === 'name' && "Let's get you set up. Start by naming your organization."}
           {step === 'admin' && `Setting up "${orgName}". Create your admin account.`}

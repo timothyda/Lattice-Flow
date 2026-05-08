@@ -34,7 +34,7 @@ export function runOAuthFlow(
 
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' })
         res.end(code
-          ? '<html><body style="font-family:sans-serif;text-align:center;padding:60px"><h2 style="color:#0073ea">&#10003; Connected!</h2><p>You can close this tab and return to PM App.</p></body></html>'
+          ? '<html><body style="font-family:sans-serif;text-align:center;padding:60px"><h2 style="color:#0073ea">&#10003; Connected!</h2><p>You can close this tab and return to Lattice Flow.</p></body></html>'
           : `<html><body style="font-family:sans-serif;text-align:center;padding:60px"><h2 style="color:#e2445c">Connection failed</h2><p>${error ?? 'No code returned'}</p></body></html>`
         )
         server.close()

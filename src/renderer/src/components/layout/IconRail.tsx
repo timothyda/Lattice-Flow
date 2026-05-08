@@ -73,7 +73,7 @@ function IconRail({ activeView, currentUser, authUser, showArchive, onViewChange
 
   return (
     <div className="icon-rail">
-      <div className="ir-logo">PM</div>
+      <div className="ir-logo">LF</div>
 
       {NAV_ITEMS.map((item) => (
         <button
