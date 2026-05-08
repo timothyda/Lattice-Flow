@@ -1,12 +1,35 @@
 import Database from 'better-sqlite3'
 import { app } from 'electron'
 import { join } from 'path'
+import { existsSync, mkdirSync, copyFileSync } from 'fs'
 
 let db: Database.Database | null = null
 
+function resolveDbPath(): string {
+  const userDataDir = app.getPath('userData')
+  const currentPath = join(userDataDir, 'pm-app-v2.db')
+
+  if (existsSync(currentPath)) return currentPath
+
+  // One-time migration: copy DB from pre-rename location (pm-app → lattice-flow)
+  const legacyPath = join(app.getPath('appData'), 'pm-app', 'pm-app-v2.db')
+  if (existsSync(legacyPath)) {
+    if (!existsSync(userDataDir)) mkdirSync(userDataDir, { recursive: true })
+    copyFileSync(legacyPath, currentPath)
+    for (const ext of ['-shm', '-wal']) {
+      const legacyWal = legacyPath + ext
+      if (existsSync(legacyWal)) {
+        try { copyFileSync(legacyWal, currentPath + ext) } catch { /* non-fatal */ }
+      }
+    }
+  }
+
+  return currentPath
+}
+
 export function getDb(): Database.Database {
   if (db) return db
-  const dbPath = join(app.getPath('userData'), 'pm-app-v2.db')
+  const dbPath = resolveDbPath()
   db = new Database(dbPath)
   db.pragma('journal_mode = WAL')
   db.pragma('foreign_keys = ON')
