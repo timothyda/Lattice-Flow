@@ -82,10 +82,16 @@ function App(): JSX.Element {
     setMainView('home')
   }, [])
 
-  const handleSignedIn = useCallback((user: User, auth: AuthUser) => {
+  const handleSignedIn = useCallback(async (user: User, auth: AuthUser) => {
     setCurrentUser(user)
     setAuthUser(auth)
     setMainView('home')
+    // Reload org + clients with the authenticated user's context so the sidebar
+    // is always populated from a confirmed post-login DB state.
+    const freshOrg = await window.api.org.get() as Organization | null
+    setOrg(freshOrg)
+    setSelectedClientId(null)
+    setSelectedProjectId(null)
   }, [])
 
   // ── Auth ───────────────────────────────────────────────────────────────────
