@@ -1,0 +1,20 @@
+appId: com.pm-app
+productName: PM App
+directories:
+  buildResources: build
+  output: dist
+files:
+  - out/**/*
+win:
+  executableName: pm-app
+nsis:
+  artifactName: ${name}-${version}-setup.${ext}
+  shortcutName: ${productName}
+  createDesktopShortcut: always
+mac:
+  category: public.app-category.productivity
+linux:
+  target:
+    - AppImage
+    - deb
+  category: Utility

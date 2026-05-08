@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+
+# Build output
+out/
+dist/
+
+# Environment — contains secrets, never commit
+.env
+
+# Local database files
+*.db
+*.db-shm
+*.db-wal
+
+# Auth cache
+msal-token-cache.json
+
+# TypeScript incremental build cache
+*.tsbuildinfo
+
+# Claude Code session data
+.claude/
+
+# OS files
+.DS_Store
+Thumbs.db
