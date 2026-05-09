@@ -7,7 +7,7 @@ import { listProjects, listProjectsByClient, getProject, createProject, updatePr
 import { listArchived, searchArchived } from './db/archive'
 import { listPhases, getPhase, createPhase, updatePhase, deletePhase, listPhaseHistory } from './db/phases'
 import { listMeetings, getMeeting, createMeeting, updateMeeting, deleteMeeting, listLinkedMeetings } from './db/meetings'
-import { createUser, getUserById, listUsers, updateUser, deleteUser, generateInviteToken } from './db/users'
+import { createUser, getUserById, getUserByEmail, listUsers, updateUser, deleteUser, generateInviteToken } from './db/users'
 import { clockIn, clockOut, getActiveSessions, getSessionsByProject, getSessionsByTodo, logSessionManually, exportSessionsCSV, deleteSession } from './db/time_sessions'
 import { getDb } from './db'
 import { getTemplates, getTemplatesByType, getSubtitlesForTodo, addSubtask, removeSubtask, addTemplate, removeTemplate, seedDefaultTemplates } from './db/task_templates'
@@ -159,12 +159,15 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('users:get', (_e, id: number) => getUserById(id))
   ipcMain.handle('users:create-invited', (_e, data: NewInvitedUser) => {
     try {
+      if (getUserByEmail(data.email)) {
+        return { error: 'A user with that email address already exists.' }
+      }
       const user = createUser(data)
       const inviteToken = generateInviteToken(user.id)
       return { user, inviteToken }
     } catch (err) {
       console.error('[users:create-invited]', err)
-      return null
+      return { error: 'Failed to create user. Please try again.' }
     }
   })
   ipcMain.handle('users:update', (_e, id: number, data: UpdateUser) => updateUser(id, data))
