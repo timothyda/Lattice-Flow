@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import type { TaskStatus, UserRole } from '../../../../shared/types'
+import { useState, useEffect } from 'react'
+import type { TaskStatus, UserRole, Todo } from '../../../../shared/types'
 import { TASK_STATUS_LABELS, TASK_STATUS_COLORS, ROLE_LABELS } from '../../../../shared/types'
 
 interface Props {
@@ -29,6 +29,15 @@ export default function ClockOutDialog({
   const [newStatus, setNewStatus] = useState<TaskStatus>('in_progress')
   const [subtask, setSubtask] = useState('')
   const [saving, setSaving] = useState(false)
+
+  // Seed the selector with the task's actual current status
+  useEffect(() => {
+    if (!todoId) return
+    window.api.todos.get(todoId).then((todo) => {
+      const t = todo as Todo | undefined
+      if (t?.task_status) setNewStatus(t.task_status)
+    })
+  }, [todoId])
 
   const handleConfirm = async () => {
     setSaving(true)
