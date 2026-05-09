@@ -81,7 +81,7 @@ declare global {
       users: {
         list: (orgId?: number) => Promise<User[]>
         get: (id: number) => Promise<User | undefined>
-        createInvited: (data: NewInvitedUser) => Promise<{ user: User; inviteToken: string } | null>
+        createInvited: (data: NewInvitedUser) => Promise<{ user: User; inviteToken: string } | { error: string } | null>
         update: (id: number, data: UpdateUser) => Promise<User | undefined>
         delete: (id: number) => Promise<boolean>
         updateAvatar: (userId: number, sourcePath: string) => Promise<User | undefined>

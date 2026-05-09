@@ -135,6 +135,7 @@ function AddUserModal({ org, onClose, onAdded }: {
         role
       })
       if (!result) { setError('Failed to add user. Please try again.'); return }
+      if ('error' in result) { setError(result.error); return }
       onAdded(displayName.trim(), email.trim().toLowerCase(), result.inviteToken)
     } catch (err) {
       setError('Failed to add user. Please try again.')
