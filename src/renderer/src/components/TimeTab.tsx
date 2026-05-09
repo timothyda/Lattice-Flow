@@ -83,12 +83,13 @@ export default function TimeTab({ projectId, focusTodoId, focusTodoTitle }: Prop
     newTaskStatus: TaskStatus | null,
     subtaskTitle: string | null
   ) => {
+    // Capture todo_id synchronously before any await so the session lookup
+    // is never affected by the 10-second polling interval clearing activeSessions.
+    const todoId = activeSessions.find((s) => s.id === sessionId)?.todo_id ?? null
+
     await window.api.time.clockOut(sessionId, note || undefined, subtaskTitle)
-    if (newTaskStatus && currentUser) {
-      const session = activeSessions.find((s) => s.id === sessionId)
-      if (session?.todo_id) {
-        await window.api.todos.updateStatus(session.todo_id, newTaskStatus, currentUser.id)
-      }
+    if (newTaskStatus && currentUser && todoId) {
+      await window.api.todos.updateStatus(todoId, newTaskStatus, currentUser.id)
     }
     await refresh()
   }, [refresh, activeSessions, currentUser])
