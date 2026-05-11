@@ -91,15 +91,62 @@ export function getTemplatesByType(orgId: number, projectType: ProjectType): Tas
   return attachSubtasks(rows)
 }
 
+// Status → template title hint: when user selects a clock-out status, show subtasks
+// from the template that corresponds to the work being handed off.
+const STATUS_TEMPLATE_HINTS: Partial<Record<string, string>> = {
+  ready_for_design: 'Design',
+  ready_for_review: 'Development',
+  pm_in_progress:   'Discovery',
+}
+
+export function getSubtitlesForTodoByStatus(todoId: number, status: string): string[] {
+  const hint = STATUS_TEMPLATE_HINTS[status]
+  if (hint) {
+    const db = getDb()
+    const proj = db
+      .prepare('SELECT p.organization_id, p.project_type FROM todos t JOIN projects p ON p.id = t.project_id WHERE t.id = ?')
+      .get(todoId) as { organization_id: number; project_type: string } | undefined
+    if (proj) {
+      const tpl = db
+        .prepare('SELECT id FROM task_templates WHERE organization_id = ? AND project_type = ? AND title = ? COLLATE NOCASE LIMIT 1')
+        .get(proj.organization_id, proj.project_type, hint) as { id: number } | undefined
+      if (tpl) {
+        return (db
+          .prepare('SELECT title FROM task_template_subtasks WHERE task_template_id = ? ORDER BY sort_order ASC, id ASC')
+          .all(tpl.id) as { title: string }[]).map((r) => r.title)
+      }
+    }
+  }
+  return getSubtitlesForTodo(todoId)
+}
+
 export function getSubtitlesForTodo(todoId: number): string[] {
-  const row = getDb()
-    .prepare('SELECT task_template_id FROM todos WHERE id = ?')
-    .get(todoId) as { task_template_id: number | null } | undefined
-  if (!row?.task_template_id) return []
+  const db = getDb()
+  const row = db
+    .prepare(`
+      SELECT t.task_template_id, t.title AS todo_title, p.project_type, p.organization_id
+      FROM todos t
+      JOIN projects p ON p.id = t.project_id
+      WHERE t.id = ?
+    `)
+    .get(todoId) as { task_template_id: number | null; todo_title: string; project_type: string; organization_id: number } | undefined
+  if (!row) return []
+
+  // Use the explicit template link if present
+  let templateId = row.task_template_id
+  if (!templateId) {
+    // Fall back: find a template in this project type whose title matches the task title
+    const match = db
+      .prepare('SELECT id FROM task_templates WHERE organization_id = ? AND project_type = ? AND title = ? COLLATE NOCASE LIMIT 1')
+      .get(row.organization_id, row.project_type, row.todo_title) as { id: number } | undefined
+    templateId = match?.id ?? null
+  }
+
+  if (!templateId) return []
   return (
-    getDb()
+    db
       .prepare('SELECT title FROM task_template_subtasks WHERE task_template_id = ? ORDER BY sort_order ASC, id ASC')
-      .all(row.task_template_id) as { title: string }[]
+      .all(templateId) as { title: string }[]
   ).map((r) => r.title)
 }
 

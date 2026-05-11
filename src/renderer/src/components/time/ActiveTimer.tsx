@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import type { TimeSession, User, TaskStatus } from '../../../../shared/types'
 import ClockOutDialog from './ClockOutDialog'
 
@@ -42,8 +42,6 @@ export default function ActiveTimer({
   const [now, setNow] = useState(Date.now())
   const [busy, setBusy] = useState(false)
   const [showClockOut, setShowClockOut] = useState(false)
-  const [subtaskOptions, setSubtaskOptions] = useState<string[]>([])
-  const loadedTodoId = useRef<number | null>(null)
 
   useEffect(() => {
     setNow(Date.now())
@@ -51,17 +49,6 @@ export default function ActiveTimer({
     const id = setInterval(() => setNow(Date.now()), 1000)
     return () => clearInterval(id)
   }, [mySession?.id])
-
-  useEffect(() => {
-    const todoId = mySession?.todo_id ?? null
-    if (todoId === loadedTodoId.current) return
-    loadedTodoId.current = todoId
-    if (todoId) {
-      window.api.taskTemplates.subtasksForTodo(todoId).then(setSubtaskOptions)
-    } else {
-      setSubtaskOptions([])
-    }
-  }, [mySession?.todo_id])
 
   const handleClockIn = async () => {
     setBusy(true)
@@ -177,7 +164,6 @@ export default function ActiveTimer({
           todoTitle={mySession.todo_title}
           userRole={currentUser?.role ?? null}
           sessionId={mySession.id}
-          subtaskOptions={subtaskOptions}
           onConfirm={handleClockOutConfirm}
           onCancel={() => setShowClockOut(false)}
         />

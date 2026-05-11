@@ -168,6 +168,7 @@ contextBridge.exposeInMainWorld('api', {
     list: (orgId: number): Promise<unknown[]> => ipcRenderer.invoke('taskTemplates:list', orgId),
     listByType: (orgId: number, projectType: ProjectType): Promise<unknown[]> => ipcRenderer.invoke('taskTemplates:listByType', orgId, projectType),
     subtasksForTodo: (todoId: number): Promise<string[]> => ipcRenderer.invoke('taskTemplates:subtasksForTodo', todoId),
+    subtasksForTodoByStatus: (todoId: number, status: string): Promise<string[]> => ipcRenderer.invoke('taskTemplates:subtasksForTodoByStatus', todoId, status),
     addSubtask: (templateId: number, title: string): Promise<unknown> => ipcRenderer.invoke('taskTemplates:addSubtask', templateId, title),
     removeSubtask: (id: number): Promise<boolean> => ipcRenderer.invoke('taskTemplates:removeSubtask', id),
     addTemplate: (orgId: number, projectType: ProjectType, title: string): Promise<unknown> => ipcRenderer.invoke('taskTemplates:addTemplate', orgId, projectType, title),

@@ -133,6 +133,7 @@ declare global {
         list: (orgId: number) => Promise<TaskTemplate[]>
         listByType: (orgId: number, projectType: ProjectType) => Promise<TaskTemplate[]>
         subtasksForTodo: (todoId: number) => Promise<string[]>
+        subtasksForTodoByStatus: (todoId: number, status: string) => Promise<string[]>
         addSubtask: (templateId: number, title: string) => Promise<TaskTemplateSubtask>
         removeSubtask: (id: number) => Promise<boolean>
         addTemplate: (orgId: number, projectType: ProjectType, title: string) => Promise<TaskTemplate>
