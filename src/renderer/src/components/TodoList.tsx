@@ -6,6 +6,7 @@ const STATUS_COLORS: Record<string, string> = {
   planning:         '#676879',
   ready_for_design: '#0073ea',
   ready_for_review: '#9f57f7',
+  pm_in_progress:   '#0073ea',
   need_it:          '#ff7b00',
   hold:             '#e2445c',
   in_progress:      '#00c875',
@@ -15,6 +16,7 @@ const STATUS_LABELS: Record<string, string> = {
   planning:         'Planning',
   ready_for_design: 'Ready for Design',
   ready_for_review: 'Ready for Review',
+  pm_in_progress:   'PM In Progress',
   need_it:          'Need IT',
   hold:             'On Hold',
   in_progress:      'In Progress',
@@ -29,7 +31,7 @@ interface Props {
 }
 
 const STATUS_ORDER: TaskStatus[] = [
-  'planning', 'ready_for_design', 'ready_for_review', 'need_it', 'hold', 'in_progress', 'complete'
+  'planning', 'ready_for_design', 'ready_for_review', 'pm_in_progress', 'need_it', 'hold', 'in_progress', 'complete'
 ]
 
 const PRIORITY_OPTIONS: { value: TodoPriority; label: string; color: string }[] = [
@@ -420,6 +422,9 @@ function TaskDetailModal({ todo, onClose }: { todo: Todo; onClose: () => void })
                       {fmtDateTime(s.started_at)}
                       {s.ended_at ? ` → ${fmtDateTime(s.ended_at)}` : ' (active)'}
                     </div>
+                    {s.subtask_title && (
+                      <div style={{ fontSize: 11, color: '#0073ea', marginTop: 2, fontWeight: 500 }}>{s.subtask_title}</div>
+                    )}
                     {s.note && <div style={{ color: '#676879', marginTop: 2, fontStyle: 'italic' }}>{s.note}</div>}
                   </div>
                   <div style={{ fontWeight: 700, color: '#0073ea', flexShrink: 0, fontSize: 13 }}>

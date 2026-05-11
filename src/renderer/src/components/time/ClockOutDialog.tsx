@@ -7,7 +7,6 @@ interface Props {
   todoTitle: string | null
   userRole: UserRole | null
   sessionId: number
-  subtaskOptions: string[]
   onConfirm: (sessionId: number, note: string, newTaskStatus: TaskStatus | null, subtaskTitle: string | null) => Promise<void>
   onCancel: () => void
 }
@@ -23,11 +22,12 @@ const CLOCK_OUT_STATUSES: { status: TaskStatus; desc: string }[] = [
 ]
 
 export default function ClockOutDialog({
-  todoId, todoTitle, userRole, sessionId, subtaskOptions, onConfirm, onCancel
+  todoId, todoTitle, userRole, sessionId, onConfirm, onCancel
 }: Props): JSX.Element {
   const [note, setNote] = useState('')
   const [newStatus, setNewStatus] = useState<TaskStatus>('in_progress')
   const [subtask, setSubtask] = useState('')
+  const [subtaskOptions, setSubtaskOptions] = useState<string[]>([])
   const [saving, setSaving] = useState(false)
 
   // Seed the selector with the task's actual current status
@@ -38,6 +38,17 @@ export default function ClockOutDialog({
       if (t?.task_status) setNewStatus(t.task_status)
     })
   }, [todoId])
+
+  // Reload subtasks whenever the selected status changes
+  useEffect(() => {
+    if (!todoId) { setSubtaskOptions([]); return }
+    window.api.taskTemplates.subtasksForTodoByStatus(todoId, newStatus).then(setSubtaskOptions)
+  }, [todoId, newStatus])
+
+  // Reset subtask selection when the options change
+  useEffect(() => {
+    setSubtask('')
+  }, [subtaskOptions])
 
   const handleConfirm = async () => {
     setSaving(true)
@@ -62,27 +73,6 @@ export default function ClockOutDialog({
             <strong>{todoTitle}</strong>
           </div>
         )}
-
-        {subtaskOptions.length > 0 && (
-          <div className="field" style={{ marginBottom: 0 }}>
-            <label>Subtask <span className="field-optional">(optional)</span></label>
-            <select value={subtask} onChange={(e) => setSubtask(e.target.value)}>
-              <option value="">— None —</option>
-              {subtaskOptions.map((s) => <option key={s} value={s}>{s}</option>)}
-            </select>
-          </div>
-        )}
-
-        <div className="field" style={{ marginBottom: 0 }}>
-          <label>Note <span className="field-optional">(optional)</span></label>
-          <textarea
-            rows={2}
-            placeholder="What did you work on?"
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            autoFocus={subtaskOptions.length === 0}
-          />
-        </div>
 
         {todoId && (
           <div>
@@ -119,6 +109,27 @@ export default function ClockOutDialog({
             </div>
           </div>
         )}
+
+        {subtaskOptions.length > 0 && (
+          <div className="field" style={{ marginBottom: 0 }}>
+            <label>Subtask <span className="field-optional">(optional)</span></label>
+            <select value={subtask} onChange={(e) => setSubtask(e.target.value)}>
+              <option value="">— None —</option>
+              {subtaskOptions.map((s) => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
+        )}
+
+        <div className="field" style={{ marginBottom: 0 }}>
+          <label>Note <span className="field-optional">(optional)</span></label>
+          <textarea
+            rows={2}
+            placeholder="What did you work on?"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            autoFocus={subtaskOptions.length === 0}
+          />
+        </div>
 
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', paddingTop: 4, borderTop: '1px solid #f0f2f8' }}>
           <button className="btn-secondary" onClick={onCancel} disabled={saving}>Cancel</button>

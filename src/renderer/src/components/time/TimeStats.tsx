@@ -132,7 +132,7 @@ export default function TimeStats({ sessions, users, onSessionDeleted }: Props):
           </tr>
         </thead>
         <tbody>
-          {[...completed].reverse().map((s) => (
+          {completed.map((s) => (
             <Fragment key={s.id}>
               <tr>
                 <td className="time-stat-date">{fmtDateTime(s.started_at)}</td>

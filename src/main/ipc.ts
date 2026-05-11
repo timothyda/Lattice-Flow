@@ -10,7 +10,7 @@ import { listMeetings, getMeeting, createMeeting, updateMeeting, deleteMeeting, 
 import { createUser, getUserById, getUserByEmail, listUsers, updateUser, deleteUser, generateInviteToken } from './db/users'
 import { clockIn, clockOut, getActiveSessions, getSessionsByProject, getSessionsByTodo, logSessionManually, exportSessionsCSV, deleteSession } from './db/time_sessions'
 import { getDb } from './db'
-import { getTemplates, getTemplatesByType, getSubtitlesForTodo, addSubtask, removeSubtask, addTemplate, removeTemplate, seedDefaultTemplates } from './db/task_templates'
+import { getTemplates, getTemplatesByType, getSubtitlesForTodo, getSubtitlesForTodoByStatus, addSubtask, removeSubtask, addTemplate, removeTemplate, seedDefaultTemplates } from './db/task_templates'
 import { getRoutingByRole, setRoleRouting, seedDefaultRouting } from './db/role_routing'
 import { listTodos, createTodo, toggleTodo, updateTodo, deleteTodo, updateTaskStatus, listOpenTodosForUser, listRecentlyCompletedForUser, listAllOpenTasksForOrg, getTodo } from './db/todos'
 import { getAssignmentsForTodo, assignUserToTask, removeUserFromTask, getAllOpenTasksForOrg } from './db/task_assignments'
@@ -259,6 +259,7 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('taskTemplates:list', (_e, orgId: number) => getTemplates(orgId))
   ipcMain.handle('taskTemplates:listByType', (_e, orgId: number, projectType: ProjectType) => getTemplatesByType(orgId, projectType))
   ipcMain.handle('taskTemplates:subtasksForTodo', (_e, todoId: number) => getSubtitlesForTodo(todoId))
+  ipcMain.handle('taskTemplates:subtasksForTodoByStatus', (_e, todoId: number, status: string) => getSubtitlesForTodoByStatus(todoId, status))
   ipcMain.handle('taskTemplates:addSubtask', (_e, templateId: number, title: string) => addSubtask(templateId, title))
   ipcMain.handle('taskTemplates:removeSubtask', (_e, id: number) => removeSubtask(id))
   ipcMain.handle('taskTemplates:addTemplate', (_e, orgId: number, projectType: ProjectType, title: string) => addTemplate(orgId, projectType, title))
