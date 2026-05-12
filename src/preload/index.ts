@@ -17,6 +17,8 @@ import type {
   SmtpConfig,
   NewClientContact, UpdateClientContact,
   UserEmailPrefs,
+  OrgFeatureKey,
+  OrgFeatures,
 } from '../shared/types'
 
 contextBridge.exposeInMainWorld('api', {
@@ -267,5 +269,21 @@ contextBridge.exposeInMainWorld('api', {
       ipcRenderer.on('whisper:progress', handler)
       return () => ipcRenderer.off('whisper:progress', handler)
     }
-  }
+  },
+  orgFeatures: {
+    get: (orgId: number): Promise<OrgFeatures> => ipcRenderer.invoke('orgFeatures:get', orgId),
+    set: (orgId: number, feature: OrgFeatureKey, enabled: boolean): Promise<void> =>
+      ipcRenderer.invoke('orgFeatures:set', orgId, feature, enabled),
+  },
+  comments: {
+    list: (todoId: number): Promise<unknown[]> => ipcRenderer.invoke('comments:list', todoId),
+    add: (todoId: number, userId: number, userName: string, content: string): Promise<unknown> =>
+      ipcRenderer.invoke('comments:add', todoId, userId, userName, content),
+    delete: (id: number, userId: number): Promise<boolean> =>
+      ipcRenderer.invoke('comments:delete', id, userId),
+    markRead: (todoId: number, userId: number): Promise<void> =>
+      ipcRenderer.invoke('comments:markRead', todoId, userId),
+    unreadCounts: (todoIds: number[], userId: number): Promise<Record<number, number>> =>
+      ipcRenderer.invoke('comments:unreadCounts', todoIds, userId),
+  },
 })

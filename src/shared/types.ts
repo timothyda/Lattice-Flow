@@ -124,6 +124,7 @@ export interface Project {
   status: ProjectStatus
   project_type: ProjectType
   due_date: string | null
+  time_budget_hours: number | null
   archived_at: string | null
   created_at: string
 }
@@ -147,7 +148,7 @@ export type NewProject = {
   project_type?: ProjectType
 }
 
-export type UpdateProject = Partial<Pick<Project, 'client_id' | 'name' | 'description' | 'nas_path' | 'status' | 'due_date'>>
+export type UpdateProject = Partial<Pick<Project, 'client_id' | 'name' | 'description' | 'nas_path' | 'status' | 'due_date' | 'time_budget_hours'>>
 
 // ── Phases ────────────────────────────────────────────────────────────────────
 
@@ -254,11 +255,17 @@ export interface Todo {
   title: string
   description: string
   priority: TodoPriority
+  start_date: string | null
   due_date: string | null
   task_status: TaskStatus
   completed: number             // 0 or 1 (derived from task_status)
   completed_at: string | null
   task_template_id: number | null
+  is_recurring: number           // 0 or 1
+  recurrence_frequency: RecurrenceFrequency | null
+  recurrence_next_date: string | null
+  estimated_minutes: number | null
+  assigned_avatar_url: string | null
   updated_at: string
   created_at: string
 }
@@ -270,12 +277,20 @@ export type NewTodo = {
   title: string
   description?: string
   priority?: TodoPriority
+  start_date?: string | null
   due_date?: string | null
   task_status?: TaskStatus
   task_template_id?: number | null
+  is_recurring?: boolean
+  recurrence_frequency?: RecurrenceFrequency | null
+  estimated_minutes?: number | null
 }
 
-export type UpdateTodo = Partial<Pick<Todo, 'title' | 'description' | 'priority' | 'due_date' | 'assigned_to' | 'phase_id'>>
+export type UpdateTodo = Partial<Pick<Todo, 'title' | 'description' | 'priority' | 'start_date' | 'due_date' | 'assigned_to' | 'phase_id'>> & {
+  is_recurring?: boolean
+  recurrence_frequency?: RecurrenceFrequency | null
+  estimated_minutes?: number | null
+}
 
 // ── Task Assignments (routing) ─────────────────────────────────────────────────
 
@@ -317,7 +332,7 @@ export interface ManualSessionData {
 
 // ── Notifications ─────────────────────────────────────────────────────────────
 
-export type NotificationType = 'task_complete' | 'status_change' | 'task_assigned'
+export type NotificationType = 'task_complete' | 'status_change' | 'task_assigned' | 'mention'
 
 export interface AppNotification {
   id: number
@@ -456,6 +471,36 @@ export interface CalendarEvent {
 
 /** @deprecated Use CalendarEvent */
 export type GraphEvent = CalendarEvent
+
+// ── Org Features ─────────────────────────────────────────────────────────────
+
+export type OrgFeatureKey = 'time_budgets' | 'overtime_alerts' | 'gantt_chart'
+export type OrgFeatures = Record<OrgFeatureKey, boolean>
+
+// ── Recurring Tasks ───────────────────────────────────────────────────────────
+
+export type RecurrenceFrequency = 'day' | 'week' | 'biweekly' | 'monthly' | '3months' | '6months' | 'yearly'
+
+export const RECURRENCE_LABELS: Record<RecurrenceFrequency, string> = {
+  day:      'Daily',
+  week:     'Weekly',
+  biweekly: 'Bi-weekly',
+  monthly:  'Monthly',
+  '3months':'Every 3 months',
+  '6months':'Every 6 months',
+  yearly:   'Yearly',
+}
+
+// ── Task Comments ─────────────────────────────────────────────────────────────
+
+export interface TaskComment {
+  id: number
+  todo_id: number
+  user_id: number
+  user_name: string
+  content: string
+  created_at: string
+}
 
 // ── Dashboard Widgets ─────────────────────────────────────────────────────────
 

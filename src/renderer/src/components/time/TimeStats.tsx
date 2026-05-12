@@ -1,4 +1,5 @@
 import { Fragment } from 'react'
+import type React from 'react'
 import type { TimeSession, User } from '../../../../shared/types'
 
 function fmtHours(totalMins: number): string {
@@ -24,9 +25,10 @@ interface Props {
   sessions: TimeSession[]
   users: User[]
   onSessionDeleted: (id: number) => void
+  showOvertimeAlerts?: boolean
 }
 
-export default function TimeStats({ sessions, users, onSessionDeleted }: Props): JSX.Element {
+export default function TimeStats({ sessions, users, onSessionDeleted, showOvertimeAlerts }: Props): JSX.Element {
   const handleDeleteSession = async (id: number) => {
     if (!window.confirm('Delete this session?')) return
     await window.api.time.deleteSession(id)
@@ -54,6 +56,13 @@ export default function TimeStats({ sessions, users, onSessionDeleted }: Props):
   const projectTotalMins = completed.reduce((acc, s) => acc + (s.duration_minutes ?? 0), 0)
   const uniqueDays = new Set(completed.map((s) => s.started_at.slice(0, 10))).size
   const avgDailyMins = uniqueDays > 0 ? Math.round(projectTotalMins / uniqueDays) : 0
+
+  const sessionDurationColor = (mins: number): React.CSSProperties | undefined => {
+    if (!showOvertimeAlerts) return undefined
+    if (mins > 600) return { color: '#c0392b', fontWeight: 700 }
+    if (mins > 480) return { color: '#e67e22', fontWeight: 700 }
+    return undefined
+  }
 
   if (completed.length === 0) {
     return (
@@ -143,7 +152,7 @@ export default function TimeStats({ sessions, users, onSessionDeleted }: Props):
                     ? <span style={{ background: '#f0f2f8', borderRadius: 10, padding: '2px 8px', fontSize: 11 }}>{s.subtask_title}</span>
                     : <span className="time-no-note">—</span>}
                 </td>
-                <td className="time-stat-num">{fmtHours(s.duration_minutes ?? 0)}</td>
+                <td className="time-stat-num" style={sessionDurationColor(s.duration_minutes ?? 0)}>{fmtHours(s.duration_minutes ?? 0)}</td>
                 <td>
                   <button
                     className="session-delete-btn"

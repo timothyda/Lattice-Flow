@@ -3,6 +3,7 @@ import type { Project, ProjectStatus } from '../../../shared/types'
 
 interface Props {
   project: Project
+  timeBudgets?: boolean
   onClose: () => void
   onSaved: () => void
 }
@@ -18,10 +19,11 @@ function sanitizeName(name: string): string {
   return name.trim().replace(/[<>:"/\\|?*]/g, '_') || 'Project'
 }
 
-function EditProjectModal({ project, onClose, onSaved }: Props): JSX.Element {
+function EditProjectModal({ project, timeBudgets, onClose, onSaved }: Props): JSX.Element {
   const [name, setName] = useState(project.name)
   const [description, setDescription] = useState(project.description ?? '')
   const [dueDate, setDueDate] = useState(project.due_date ?? '')
+  const [budgetHours, setBudgetHours] = useState(project.time_budget_hours != null ? String(project.time_budget_hours) : '')
   const [nasPath, setNasPath] = useState(project.nas_path)
   const [status, setStatus] = useState<ProjectStatus>(project.status)
   const [rootFolder, setRootFolder] = useState('')
@@ -54,7 +56,12 @@ function EditProjectModal({ project, onClose, onSaved }: Props): JSX.Element {
         await window.api.fs.mkdir(nasPath)
         await window.api.fs.mkdir(window.api.path.join(nasPath, 'Meeting Recordings'))
       }
-      await window.api.projects.update(project.id, { name: name.trim(), description, nas_path: nasPath, status, due_date: dueDate || null })
+      const parsedBudget = budgetHours ? parseFloat(budgetHours) : null
+      await window.api.projects.update(project.id, {
+        name: name.trim(), description, nas_path: nasPath, status,
+        due_date: dueDate || null,
+        time_budget_hours: (timeBudgets && parsedBudget && parsedBudget > 0) ? parsedBudget : null,
+      })
       onSaved()
     } catch {
       setError('Failed to save changes. Please try again.')
@@ -77,6 +84,20 @@ function EditProjectModal({ project, onClose, onSaved }: Props): JSX.Element {
             <label>Due date <span className="field-optional">(optional)</span></label>
             <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
           </div>
+
+          {timeBudgets && (
+            <div className="field">
+              <label>Time budget <span className="field-optional">(hours, optional)</span></label>
+              <input
+                type="number"
+                min="0"
+                step="0.5"
+                value={budgetHours}
+                onChange={(e) => setBudgetHours(e.target.value)}
+                placeholder="e.g. 80"
+              />
+            </div>
+          )}
 
           <div className="field">
             <label>Status</label>

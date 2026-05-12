@@ -168,6 +168,36 @@ function runAlterMigrations(db: Database.Database): void {
     db.exec("ALTER TABLE projects ADD COLUMN project_type TEXT NOT NULL DEFAULT 'other'")
   }
 
+  // todos: add recurring columns if missing
+  const todoCols3 = cols(db, 'todos')
+  if (!todoCols3.includes('is_recurring')) {
+    db.exec('ALTER TABLE todos ADD COLUMN is_recurring INTEGER NOT NULL DEFAULT 0')
+  }
+  if (!todoCols3.includes('recurrence_frequency')) {
+    db.exec('ALTER TABLE todos ADD COLUMN recurrence_frequency TEXT')
+  }
+  if (!todoCols3.includes('recurrence_next_date')) {
+    db.exec('ALTER TABLE todos ADD COLUMN recurrence_next_date TEXT')
+  }
+
+  // todos: add start_date if missing
+  const todoCols4 = cols(db, 'todos')
+  if (!todoCols4.includes('start_date')) {
+    db.exec('ALTER TABLE todos ADD COLUMN start_date TEXT')
+  }
+
+  // todos: add estimated_minutes if missing
+  const todoCols5 = cols(db, 'todos')
+  if (!todoCols5.includes('estimated_minutes')) {
+    db.exec('ALTER TABLE todos ADD COLUMN estimated_minutes INTEGER')
+  }
+
+  // projects: add time_budget_hours if missing
+  const projCols3 = cols(db, 'projects')
+  if (!projCols3.includes('time_budget_hours')) {
+    db.exec('ALTER TABLE projects ADD COLUMN time_budget_hours REAL')
+  }
+
   // New tables (safe to run even if they already exist via IF NOT EXISTS)
   db.exec(`
     CREATE TABLE IF NOT EXISTS task_templates (
@@ -261,6 +291,36 @@ function runAlterMigrations(db: Database.Database): void {
       caldav_password TEXT,
       color         TEXT    NOT NULL DEFAULT '#0073ea',
       created_at    TEXT    NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS org_features (
+      org_id  INTEGER NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+      feature TEXT    NOT NULL,
+      enabled INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (org_id, feature)
+    );
+
+    CREATE TABLE IF NOT EXISTS task_comments (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      todo_id    INTEGER NOT NULL REFERENCES todos(id) ON DELETE CASCADE,
+      user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      user_name  TEXT    NOT NULL,
+      content    TEXT    NOT NULL,
+      created_at TEXT    NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS comment_reads (
+      todo_id      INTEGER NOT NULL REFERENCES todos(id) ON DELETE CASCADE,
+      user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      last_read_at TEXT    NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY (todo_id, user_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS comment_mentions (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      comment_id INTEGER NOT NULL REFERENCES task_comments(id) ON DELETE CASCADE,
+      user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      UNIQUE(comment_id, user_id)
     );
   `)
 }

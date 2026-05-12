@@ -16,6 +16,8 @@ import type {
   ClientContact, NewClientContact, UpdateClientContact,
   SmtpConfig, UserEmailPrefs, ProjectClientNotification,
   CalendarAccount, CalendarEvent, CalendarProvider,
+  OrgFeatureKey, OrgFeatures,
+  TaskComment,
 } from '../../shared/types'
 
 declare global {
@@ -205,6 +207,17 @@ declare global {
         transcribe: (recordingPath: string) => Promise<string>
         moveRecording: (srcPath: string, destDir: string) => Promise<string>
         onProgress: (cb: (line: string) => void) => () => void
+      }
+      orgFeatures: {
+        get: (orgId: number) => Promise<OrgFeatures>
+        set: (orgId: number, feature: OrgFeatureKey, enabled: boolean) => Promise<void>
+      }
+      comments: {
+        list: (todoId: number) => Promise<TaskComment[]>
+        add: (todoId: number, userId: number, userName: string, content: string) => Promise<TaskComment>
+        delete: (id: number, userId: number) => Promise<boolean>
+        markRead: (todoId: number, userId: number) => Promise<void>
+        unreadCounts: (todoIds: number[], userId: number) => Promise<Record<number, number>>
       }
     }
   }
