@@ -24,12 +24,15 @@ function resolveDbPath(): string {
 
   if (!existsSync(userDataDir)) mkdirSync(userDataDir, { recursive: true })
 
-  // One-time migration: copy pm-app-v2.db → opus-flo.db on first run after rename.
-  if (!existsSync(currentPath)) {
-    const prevPath = join(userDataDir, 'pm-app-v2.db')
-    const legacyPath = join(app.getPath('appData'), 'pm-app', 'pm-app-v2.db')
-    const source = existsSync(prevPath) && dbHasData(prevPath) ? prevPath
-                 : existsSync(legacyPath) && dbHasData(legacyPath) ? legacyPath
+  // One-time migration: copy previous DB → opus-flo.db on first run after rename.
+  if (!existsSync(currentPath) || !dbHasData(currentPath)) {
+    const appData = app.getPath('appData')
+    const prevPath    = join(userDataDir, 'pm-app-v2.db')
+    const latticePath = join(appData, 'lattice-flow', 'pm-app-v2.db')
+    const legacyPath  = join(appData, 'pm-app', 'pm-app-v2.db')
+    const source = existsSync(prevPath)    && dbHasData(prevPath)    ? prevPath
+                 : existsSync(latticePath) && dbHasData(latticePath) ? latticePath
+                 : existsSync(legacyPath)  && dbHasData(legacyPath)  ? legacyPath
                  : null
     if (source) {
       try {
