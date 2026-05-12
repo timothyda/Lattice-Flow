@@ -323,6 +323,24 @@ function runAlterMigrations(db: Database.Database): void {
       UNIQUE(comment_id, user_id)
     );
   `)
+
+  // Seed task_assignments for any existing tasks that were in a routable status
+  // before the routing system existed. Uses hardcoded defaults matching STATUS_ROUTING.
+  db.exec(`
+    INSERT OR IGNORE INTO task_assignments (todo_id, user_id)
+    SELECT t.id, u.id
+    FROM todos t
+    JOIN projects p ON t.project_id = p.id
+    JOIN users u ON u.organization_id = p.organization_id
+    WHERE NOT EXISTS (SELECT 1 FROM task_assignments ta WHERE ta.todo_id = t.id)
+      AND (
+        (t.task_status = 'ready_for_design' AND u.role IN ('lead_designer', 'designer'))
+        OR (t.task_status = 'ready_for_review' AND u.role IN ('lead_designer', 'project_manager'))
+        OR (t.task_status = 'pm_in_progress'   AND u.role = 'project_manager')
+        OR (t.task_status = 'need_it'           AND u.role = 'it')
+        OR (t.task_status = 'hold'              AND u.role IN ('project_manager', 'lead_designer'))
+      )
+  `)
 }
 
 function runMigrations(db: Database.Database): void {

@@ -140,7 +140,7 @@ export function updateTaskStatus(
 
   // Apply routing
   if (orgId) {
-    routeTask(todoId, newStatus, orgId)
+    routeTask(todoId, newStatus, orgId, actingUserId)
 
     // Fire notifications on complete
     if (isComplete) {
