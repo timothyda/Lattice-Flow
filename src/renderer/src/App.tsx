@@ -11,7 +11,7 @@ import CalendarView from './views/CalendarView'
 import SettingsModal from './components/SettingsModal'
 import NotificationBell from './components/NotificationBell'
 import ArchiveOverlay from './components/ArchiveOverlay'
-import type { Organization, User, Client, Project, AuthUser, Todo } from '../../shared/types'
+import type { Organization, User, Client, Project, AuthUser, Todo, OrgFeatures } from '../../shared/types'
 import './App.css'
 
 type MainView = 'home' | 'project' | 'client' | 'calendar' | 'users'
@@ -35,6 +35,7 @@ function App(): JSX.Element {
 
   const [showSettings, setShowSettings] = useState(false)
   const [showArchive, setShowArchive] = useState(false)
+  const [orgFeatures, setOrgFeatures] = useState<OrgFeatures | null>(null)
 
   // ── Initial load ───────────────────────────────────────────────────────────
 
@@ -52,6 +53,11 @@ function App(): JSX.Element {
       if (prefs.lastProjectId) { setSelectedProjectId(prefs.lastProjectId); setMainView('project') }
     }).finally(() => setOrgLoading(false))
   }, [])
+
+  useEffect(() => {
+    if (!org) return
+    window.api.orgFeatures.get(org.id).then(setOrgFeatures)
+  }, [org?.id])
 
   // Load clients + their projects when org is set
   useEffect(() => {
@@ -228,7 +234,10 @@ function App(): JSX.Element {
         <SettingsModal
           org={org}
           currentUser={currentUser}
-          onClose={() => setShowSettings(false)}
+          onClose={() => {
+            setShowSettings(false)
+            window.api.orgFeatures.get(org.id).then(setOrgFeatures)
+          }}
           onOrgRenamed={(name) => setOrg((prev) => prev ? { ...prev, name } : prev)}
         />
       )}
@@ -315,6 +324,7 @@ function App(): JSX.Element {
           <ProjectView
             key={`${selectedProject.id}-${focusTodo?.id ?? 'none'}-${projectResetKey}`}
             project={selectedProject}
+            orgFeatures={orgFeatures}
             defaultTab={focusTodo ? 'time' : undefined}
             focusTodoId={focusTodo?.id ?? null}
             focusTodoTitle={focusTodo?.title ?? null}

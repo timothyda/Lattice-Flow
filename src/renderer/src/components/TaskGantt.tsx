@@ -33,8 +33,10 @@ function addDays(d: Date, n: number): Date {
 
 export default function TaskGantt({ tasks, projectDueDate }: Props): JSX.Element | null {
   const datedTasks = tasks.filter((t) => {
-    if (!t.due_date || t.task_status === 'complete') return false
-    return parseDate(t.created_at) !== null && parseDate(t.due_date) !== null
+    if (t.task_status === 'complete') return false
+    const effectiveDue = t.due_date ?? (t.is_recurring ? t.recurrence_next_date : null)
+    if (!effectiveDue) return false
+    return parseDate(effectiveDue) !== null
   })
 
   if (datedTasks.length === 0) return null
@@ -43,8 +45,8 @@ export default function TaskGantt({ tasks, projectDueDate }: Props): JSX.Element
   today.setHours(0, 0, 0, 0)
 
   // Date range: earliest task start → latest due date (+ padding)
-  const allStarts = datedTasks.map((t) => parseDate(t.created_at)!).filter(Boolean)
-  const allEnds   = datedTasks.map((t) => parseDate(t.due_date)!).filter(Boolean)
+  const allStarts = datedTasks.map((t) => parseDate(t.start_date ?? t.created_at)!).filter(Boolean)
+  const allEnds   = datedTasks.map((t) => parseDate(t.due_date ?? t.recurrence_next_date)!).filter(Boolean)
   if (projectDueDate) { const pd = parseDate(projectDueDate); if (pd) allEnds.push(pd) }
 
   const rawMin = new Date(Math.min(...allStarts.map((d) => d.getTime())))
@@ -107,8 +109,9 @@ export default function TaskGantt({ tasks, projectDueDate }: Props): JSX.Element
 
         {/* Task rows */}
         {datedTasks.map((task) => {
-          const start   = parseDate(task.created_at)!
-          const end     = parseDate(task.due_date)!
+          const effectiveDue = task.due_date ?? task.recurrence_next_date
+          const start   = parseDate(task.start_date ?? task.created_at)!
+          const end     = parseDate(effectiveDue)!
           const leftPct = pct(start)
           const widthPct = Math.max(0.8, pct(end) - leftPct)
           const color   = STATUS_COLORS[task.task_status] ?? '#9699a6'
@@ -140,7 +143,7 @@ export default function TaskGantt({ tasks, projectDueDate }: Props): JSX.Element
 
                 {/* Task bar */}
                 <div
-                  title={`${STATUS_LABELS[task.task_status]} · Due ${task.due_date}${isOverdue ? ' (OVERDUE)' : ''}`}
+                  title={`${STATUS_LABELS[task.task_status]} · Due ${effectiveDue}${task.is_recurring ? ' ↻' : ''}${isOverdue ? ' (OVERDUE)' : ''}`}
                   style={{
                     position: 'absolute', left: `${leftPct}%`, width: `${widthPct}%`,
                     height: '100%', background: barColor, borderRadius: 6,

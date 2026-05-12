@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import type { Todo, TaskStatus, TodoPriority, TimeSession } from '../../../shared/types'
+import type { Todo, TaskStatus, TodoPriority, TimeSession, RecurrenceFrequency, User } from '../../../shared/types'
+import { RECURRENCE_LABELS } from '../../../shared/types'
+import TaskCommentModal from './TaskCommentModal'
 
 // Defined locally to avoid any bundle-resolution issues with shared constants
 const STATUS_COLORS: Record<string, string> = {
@@ -26,8 +28,10 @@ const STATUS_LABELS: Record<string, string> = {
 interface Props {
   projectId: number
   phaseId?: number | null
+  timeBudgets?: boolean
   onChanged?: () => void
   onOpenTask?: (todo: Todo) => void
+  onTasksChanged?: (todos: Todo[]) => void
 }
 
 const STATUS_ORDER: TaskStatus[] = [
@@ -110,17 +114,24 @@ function StatusBadge({ todo, onChange }: { todo: Todo; onChange: (s: TaskStatus)
 interface NewTaskFormProps {
   projectId: number
   phaseId?: number | null
+  timeBudgets?: boolean
+  users: User[]
   onCreated: (todo: Todo) => void
   onCancel: () => void
 }
 
-function NewTaskForm({ projectId, phaseId, onCreated, onCancel }: NewTaskFormProps): JSX.Element {
-  const [title,    setTitle]    = useState('')
-  const [desc,     setDesc]     = useState('')
-  const [status,   setStatus]   = useState<TaskStatus>('planning')
-  const [priority, setPriority] = useState<TodoPriority>('normal')
-  const [dueDate,  setDueDate]  = useState('')
-  const [saving,   setSaving]   = useState(false)
+function NewTaskForm({ projectId, phaseId, timeBudgets, users, onCreated, onCancel }: NewTaskFormProps): JSX.Element {
+  const [title,           setTitle]          = useState('')
+  const [desc,            setDesc]           = useState('')
+  const [status,          setStatus]         = useState<TaskStatus>('planning')
+  const [priority,        setPriority]       = useState<TodoPriority>('normal')
+  const [assignedTo,      setAssignedTo]     = useState<number | null>(null)
+  const [startDate,       setStartDate]      = useState('')
+  const [dueDate,         setDueDate]        = useState('')
+  const [estimatedHours,  setEstimatedHours] = useState('')
+  const [isRecurring,     setIsRecurring]    = useState(false)
+  const [recurrenceFreq,  setRecurrenceFreq] = useState<RecurrenceFrequency>('week')
+  const [saving,          setSaving]         = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => { inputRef.current?.focus() }, [])
@@ -130,14 +141,20 @@ function NewTaskForm({ projectId, phaseId, onCreated, onCancel }: NewTaskFormPro
     if (!t) return
     setSaving(true)
     try {
+      const parsedEst = estimatedHours ? Math.round(parseFloat(estimatedHours) * 60) : null
       const created = await window.api.todos.create({
-        project_id:  projectId,
-        phase_id:    phaseId ?? null,
-        title:       t,
-        description: desc.trim(),
+        project_id:           projectId,
+        phase_id:             phaseId ?? null,
+        title:                t,
+        description:          desc.trim(),
         priority,
-        due_date:    dueDate || null,
-        task_status: status
+        assigned_to:          assignedTo,
+        start_date:           startDate || null,
+        due_date:             dueDate || null,
+        task_status:          status,
+        is_recurring:         isRecurring,
+        recurrence_frequency: isRecurring ? recurrenceFreq : null,
+        estimated_minutes:    parsedEst,
       }) as Todo
 
       // Apply routing if status has routing rules
@@ -205,8 +222,21 @@ function NewTaskForm({ projectId, phaseId, onCreated, onCancel }: NewTaskFormPro
         </div>
       </div>
 
-      {/* Priority + Due date */}
+      {/* Assign + Priority + Start + Due date */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
+        {users.length > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ fontSize: 11, fontWeight: 600, color: '#676879' }}>Assign</span>
+            <select
+              value={assignedTo ?? ''}
+              onChange={(e) => setAssignedTo(e.target.value ? Number(e.target.value) : null)}
+              style={{ border: '1.5px solid #c3c6d4', borderRadius: 6, padding: '3px 6px', fontSize: 12, outline: 'none', background: '#fff', cursor: 'pointer' }}
+            >
+              <option value="">Unassigned</option>
+              {users.map((u) => <option key={u.id} value={u.id}>{u.display_name}</option>)}
+            </select>
+          </div>
+        )}
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <span style={{ fontSize: 11, fontWeight: 600, color: '#676879' }}>Priority</span>
           <select
@@ -224,6 +254,19 @@ function NewTaskForm({ projectId, phaseId, onCreated, onCancel }: NewTaskFormPro
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span style={{ fontSize: 11, fontWeight: 600, color: '#676879' }}>Start</span>
+          <input
+            type="date"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+            style={{
+              border: '1.5px solid #c3c6d4', borderRadius: 6, padding: '3px 6px',
+              fontSize: 12, outline: 'none', background: '#fff'
+            }}
+          />
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <span style={{ fontSize: 11, fontWeight: 600, color: '#676879' }}>Due</span>
           <input
             type="date"
@@ -235,6 +278,43 @@ function NewTaskForm({ projectId, phaseId, onCreated, onCancel }: NewTaskFormPro
             }}
           />
         </div>
+
+        {timeBudgets && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ fontSize: 11, fontWeight: 600, color: '#676879' }}>Est. hrs</span>
+            <input
+              type="number"
+              min="0"
+              step="0.5"
+              value={estimatedHours}
+              onChange={(e) => setEstimatedHours(e.target.value)}
+              placeholder="0"
+              style={{
+                border: '1.5px solid #c3c6d4', borderRadius: 6, padding: '3px 6px',
+                fontSize: 12, outline: 'none', background: '#fff', width: 64
+              }}
+            />
+          </div>
+        )}
+      </div>
+
+      {/* Recurring */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#676879', cursor: 'pointer' }}>
+          <input type="checkbox" checked={isRecurring} onChange={(e) => setIsRecurring(e.target.checked)} />
+          Recurring
+        </label>
+        {isRecurring && (
+          <select
+            value={recurrenceFreq}
+            onChange={(e) => setRecurrenceFreq(e.target.value as RecurrenceFrequency)}
+            style={{ border: '1.5px solid #c3c6d4', borderRadius: 6, padding: '3px 6px', fontSize: 12, outline: 'none', background: '#fff' }}
+          >
+            {(Object.keys(RECURRENCE_LABELS) as RecurrenceFrequency[]).map((k) => (
+              <option key={k} value={k}>{RECURRENCE_LABELS[k]}</option>
+            ))}
+          </select>
+        )}
       </div>
 
       {/* Actions */}
@@ -266,22 +346,33 @@ function NewTaskForm({ projectId, phaseId, onCreated, onCancel }: NewTaskFormPro
 
 // ── Edit Task Modal ───────────────────────────────────────────────────────────
 
-function EditTaskModal({ todo, onClose, onSaved }: { todo: Todo; onClose: () => void; onSaved: (updated: Todo) => void }): JSX.Element {
-  const [title,    setTitle]    = useState(todo.title)
-  const [desc,     setDesc]     = useState(todo.description ?? '')
-  const [priority, setPriority] = useState<TodoPriority>(todo.priority ?? 'normal')
-  const [dueDate,  setDueDate]  = useState(todo.due_date ?? '')
-  const [saving,   setSaving]   = useState(false)
+function EditTaskModal({ todo, timeBudgets, users, onClose, onSaved }: { todo: Todo; timeBudgets?: boolean; users: User[]; onClose: () => void; onSaved: (updated: Todo) => void }): JSX.Element {
+  const [title,           setTitle]          = useState(todo.title)
+  const [desc,            setDesc]           = useState(todo.description ?? '')
+  const [priority,        setPriority]       = useState<TodoPriority>(todo.priority ?? 'normal')
+  const [assignedTo,      setAssignedTo]     = useState<number | null>(todo.assigned_to ?? null)
+  const [startDate,       setStartDate]      = useState(todo.start_date ?? '')
+  const [dueDate,         setDueDate]        = useState(todo.due_date ?? '')
+  const [estimatedHours,  setEstimatedHours] = useState(todo.estimated_minutes != null ? String(todo.estimated_minutes / 60) : '')
+  const [isRecurring,     setIsRecurring]    = useState(!!todo.is_recurring)
+  const [recurrenceFreq,  setRecurrenceFreq] = useState<RecurrenceFrequency>(todo.recurrence_frequency ?? 'week')
+  const [saving,          setSaving]         = useState(false)
 
   const handleSave = async () => {
     if (!title.trim()) return
     setSaving(true)
+    const parsedEst = estimatedHours ? Math.round(parseFloat(estimatedHours) * 60) : null
     try {
       const updated = await window.api.todos.update(todo.id, {
-        title:       title.trim(),
-        description: desc.trim(),
+        title:                title.trim(),
+        description:          desc.trim(),
         priority,
-        due_date:    dueDate || null
+        assigned_to:          assignedTo,
+        start_date:           startDate || null,
+        due_date:             dueDate || null,
+        is_recurring:         isRecurring,
+        recurrence_frequency: isRecurring ? recurrenceFreq : null,
+        estimated_minutes:    parsedEst,
       }) as Todo
       onSaved(updated)
     } catch (err) { console.error('[EditTaskModal]', err) }
@@ -304,16 +395,58 @@ function EditTaskModal({ todo, onClose, onSaved }: { todo: Todo; onClose: () => 
         </div>
 
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-          <div className="field" style={{ flex: 1, minWidth: 140, marginBottom: 0 }}>
+          <div className="field" style={{ flex: 1, minWidth: 120, marginBottom: 0 }}>
             <label>Priority</label>
             <select value={priority} onChange={(e) => setPriority(e.target.value as TodoPriority)}>
               {PRIORITY_OPTIONS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
             </select>
           </div>
-          <div className="field" style={{ flex: 1, minWidth: 140, marginBottom: 0 }}>
+          {users.length > 0 && (
+            <div className="field" style={{ flex: 1, minWidth: 140, marginBottom: 0 }}>
+              <label>Assigned to</label>
+              <select value={assignedTo ?? ''} onChange={(e) => setAssignedTo(e.target.value ? Number(e.target.value) : null)}>
+                <option value="">Unassigned</option>
+                {users.map((u) => <option key={u.id} value={u.id}>{u.display_name}</option>)}
+              </select>
+            </div>
+          )}
+          <div className="field" style={{ flex: 1, minWidth: 120, marginBottom: 0 }}>
+            <label>Start date</label>
+            <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+          </div>
+          <div className="field" style={{ flex: 1, minWidth: 120, marginBottom: 0 }}>
             <label>Due date</label>
             <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
           </div>
+          {timeBudgets && (
+            <div className="field" style={{ flex: 1, minWidth: 100, marginBottom: 0 }}>
+              <label>Est. hours</label>
+              <input
+                type="number" min="0" step="0.5"
+                value={estimatedHours}
+                onChange={(e) => setEstimatedHours(e.target.value)}
+                placeholder="0"
+              />
+            </div>
+          )}
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4 }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#323338', cursor: 'pointer' }}>
+            <input type="checkbox" checked={isRecurring} onChange={(e) => setIsRecurring(e.target.checked)} />
+            Recurring task
+          </label>
+          {isRecurring && (
+            <select
+              value={recurrenceFreq}
+              onChange={(e) => setRecurrenceFreq(e.target.value as RecurrenceFrequency)}
+              style={{ border: '1.5px solid #c3c6d4', borderRadius: 6, padding: '4px 8px', fontSize: 12 }}
+            >
+              {(Object.keys(RECURRENCE_LABELS) as RecurrenceFrequency[]).map((k) => (
+                <option key={k} value={k}>{RECURRENCE_LABELS[k]}</option>
+              ))}
+            </select>
+          )}
         </div>
 
         <div className="modal-actions">
@@ -446,20 +579,40 @@ function TaskDetailModal({ todo, onClose }: { todo: Todo; onClose: () => void })
 
 // ── Main TodoList ─────────────────────────────────────────────────────────────
 
-export default function TodoList({ projectId, phaseId, onChanged, onOpenTask }: Props): JSX.Element {
-  const [todos, setTodos] = useState<Todo[]>([])
-  const [adding, setAdding] = useState(false)
-  const [detailTodo, setDetailTodo] = useState<Todo | null>(null)
-  const [editTodo, setEditTodo] = useState<Todo | null>(null)
+export default function TodoList({ projectId, phaseId, timeBudgets, onChanged, onOpenTask, onTasksChanged }: Props): JSX.Element {
+  const [todos,        setTodos]       = useState<Todo[]>([])
+  const [adding,       setAdding]      = useState(false)
+  const [detailTodo,   setDetailTodo]  = useState<Todo | null>(null)
+  const [editTodo,     setEditTodo]    = useState<Todo | null>(null)
+  const [commentTodo,  setCommentTodo] = useState<Todo | null>(null)
+  const [currentUser,  setCurrentUser] = useState<User | null>(null)
+  const [orgUsers,     setOrgUsers]    = useState<User[]>([])
+  const [unreadCounts, setUnreadCounts] = useState<Record<number, number>>({})
+
+  const pushTasks = useCallback((updated: Todo[]) => {
+    setTodos(updated)
+    onTasksChanged?.(updated)
+  }, [onTasksChanged])
+
+  useEffect(() => {
+    window.api.auth.getCurrentUser().then((u) => setCurrentUser(u as User | null))
+    window.api.users.list().then((us) => setOrgUsers(us as User[]))
+  }, [])
 
   const load = () => {
-    window.api.todos.list(projectId, phaseId).then((data) => setTodos(data as Todo[]))
+    window.api.todos.list(projectId, phaseId).then((data) => pushTasks(data as Todo[]))
   }
 
   useEffect(() => { load() }, [projectId, phaseId])
 
+  useEffect(() => {
+    if (!currentUser || todos.length === 0) return
+    const ids = todos.map((t) => t.id)
+    window.api.comments.unreadCounts(ids, currentUser.id).then(setUnreadCounts)
+  }, [todos, currentUser])
+
   const handleCreated = (todo: Todo) => {
-    setTodos((prev) => [todo, ...prev])
+    pushTasks([todo, ...todos])
     setAdding(false)
     onChanged?.()
   }
@@ -467,13 +620,13 @@ export default function TodoList({ projectId, phaseId, onChanged, onOpenTask }: 
   const handleStatusChange = async (todo: Todo, newStatus: TaskStatus) => {
     const currentUser = await window.api.auth.getCurrentUser() as { id: number } | null
     const updated = await window.api.todos.updateStatus(todo.id, newStatus, currentUser?.id) as Todo
-    setTodos((prev) => prev.map((t) => t.id === todo.id ? updated : t))
+    pushTasks(todos.map((t) => t.id === todo.id ? updated : t))
     onChanged?.()
   }
 
   const handleDelete = async (id: number) => {
     await window.api.todos.delete(id)
-    setTodos((prev) => prev.filter((t) => t.id !== id))
+    pushTasks(todos.filter((t) => t.id !== id))
     onChanged?.()
   }
 
@@ -486,11 +639,27 @@ export default function TodoList({ projectId, phaseId, onChanged, onOpenTask }: 
     {editTodo && (
       <EditTaskModal
         todo={editTodo}
+        timeBudgets={timeBudgets}
+        users={orgUsers}
         onClose={() => setEditTodo(null)}
         onSaved={(updated) => {
           setTodos((prev) => prev.map((t) => t.id === updated.id ? updated : t))
           setEditTodo(null)
           onChanged?.()
+        }}
+      />
+    )}
+    {commentTodo && (
+      <TaskCommentModal
+        todo={commentTodo}
+        currentUser={currentUser}
+        orgUsers={orgUsers}
+        onClose={() => {
+          setCommentTodo(null)
+          if (currentUser) {
+            window.api.comments.unreadCounts(todos.map((t) => t.id), currentUser.id)
+              .then(setUnreadCounts)
+          }
         }}
       />
     )}
@@ -506,6 +675,8 @@ export default function TodoList({ projectId, phaseId, onChanged, onOpenTask }: 
         <NewTaskForm
           projectId={projectId}
           phaseId={phaseId}
+          timeBudgets={timeBudgets}
+          users={orgUsers}
           onCreated={handleCreated}
           onCancel={() => setAdding(false)}
         />
@@ -518,7 +689,9 @@ export default function TodoList({ projectId, phaseId, onChanged, onOpenTask }: 
       {/* ── Open tasks — no height cap, parent phase-content scrolls ── */}
       {open.length > 0 && (
         <ul className="todo-items">
-          {open.map((t) => (
+          {open.map((t) => {
+            const unread = unreadCounts[t.id] ?? 0
+            return (
             <li key={t.id} className="todo-item" style={{ alignItems: 'center', gap: 6, padding: '6px 2px' }}>
               <StatusBadge todo={t} onChange={(s) => handleStatusChange(t, s)} />
 
@@ -534,6 +707,11 @@ export default function TodoList({ projectId, phaseId, onChanged, onOpenTask }: 
                 }}
               >
                 {t.title}
+                {!!t.is_recurring && (
+                  <span style={{ marginLeft: 6, fontSize: 9, color: '#0073ea', background: '#e6f2ff', borderRadius: 6, padding: '1px 5px', fontWeight: 600 }}>
+                    ↻
+                  </span>
+                )}
                 {t.due_date && (
                   <span style={{
                     marginLeft: 8, fontSize: 10,
@@ -544,11 +722,38 @@ export default function TodoList({ projectId, phaseId, onChanged, onOpenTask }: 
                 )}
               </button>
 
+              {t.assigned_to && (
+                <span
+                  title={t.assigned_name ?? ''}
+                  style={{
+                    width: 20, height: 20, borderRadius: '50%', flexShrink: 0,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    overflow: 'hidden', fontSize: 9, fontWeight: 700, color: '#fff',
+                    background: t.assigned_avatar_url ? 'transparent' : '#0073ea',
+                  }}
+                >
+                  {t.assigned_avatar_url
+                    ? <img src={t.assigned_avatar_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt={t.assigned_name ?? ''} />
+                    : (t.assigned_name ?? '?').charAt(0).toUpperCase()}
+                </span>
+              )}
+
               {onOpenTask && (
                 <span className="task-clock-hint" style={{ fontSize: 10, color: '#0073ea', opacity: 0, whiteSpace: 'nowrap', flexShrink: 0 }}>
                   ⏱ Start
                 </span>
               )}
+
+              {/* Comment bell */}
+              <button
+                className="task-comment-btn"
+                onClick={(e) => { e.stopPropagation(); setCommentTodo(t) }}
+                title="Comments"
+              >
+                <span className="task-comment-icon">💬</span>
+                {unread > 0 && <span className="task-comment-badge">{unread}</span>}
+              </button>
+
               <button
                 onClick={() => setEditTodo(t)}
                 title="Edit task"
@@ -557,7 +762,8 @@ export default function TodoList({ projectId, phaseId, onChanged, onOpenTask }: 
               >✎</button>
               <button className="todo-delete" onClick={() => handleDelete(t.id)} title="Delete">×</button>
             </li>
-          ))}
+            )
+          })}
         </ul>
       )}
 

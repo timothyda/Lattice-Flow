@@ -48,7 +48,7 @@ export function createProject(data: NewProject): Project {
 }
 
 export function updateProject(id: number, data: UpdateProject): Project | undefined {
-  const UPDATABLE: (keyof UpdateProject)[] = ['client_id', 'name', 'description', 'nas_path', 'status', 'due_date']
+  const UPDATABLE: (keyof UpdateProject)[] = ['client_id', 'name', 'description', 'nas_path', 'status', 'due_date', 'time_budget_hours']
   const cols = UPDATABLE.filter((k) => k in data)
   if (cols.length === 0) return getProject(id)
   const sql = `UPDATE projects SET ${cols.map((c) => `${c} = ?`).join(', ')} WHERE id = ?`

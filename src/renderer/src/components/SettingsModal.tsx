@@ -5,6 +5,7 @@ import RolesTab from './settings/RolesTab'
 import EmailTab from './settings/EmailTab'
 import NotificationsTab from './settings/NotificationsTab'
 import CalendarTab from './settings/CalendarTab'
+import FeaturesTab from './settings/FeaturesTab'
 
 interface Props {
   org: Organization
@@ -20,7 +21,7 @@ interface RecorderStatus {
   folderPath: string
 }
 
-type Tab = 'org' | 'transcription' | 'templates' | 'roles' | 'email' | 'notifications' | 'calendar'
+type Tab = 'org' | 'transcription' | 'templates' | 'roles' | 'email' | 'notifications' | 'calendar' | 'features'
 
 export default function SettingsModal({ org, currentUser, onClose, onOrgRenamed }: Props): JSX.Element {
   const [tab, setTab] = useState<Tab>('org')
@@ -52,7 +53,7 @@ export default function SettingsModal({ org, currentUser, onClose, onOrgRenamed 
 
   const tabStyle = (t: Tab) => ({
     padding: '6px 14px', fontSize: 13, cursor: 'pointer', borderRadius: 6,
-    border: '1.5px solid',
+    border: '1.5px solid', flexShrink: 0, whiteSpace: 'nowrap',
     borderColor: tab === t ? '#0073ea' : 'transparent',
     background: tab === t ? '#e6f2ff' : 'transparent',
     color: tab === t ? '#0073ea' : '#676879',
@@ -65,7 +66,7 @@ export default function SettingsModal({ org, currentUser, onClose, onOrgRenamed 
         <h3 className="modal-title">Settings</h3>
 
         {/* Tab bar */}
-        <div style={{ display: 'flex', gap: 4, marginBottom: 20, borderBottom: '1px solid #e6e9f0', paddingBottom: 12 }}>
+        <div className="settings-tab-bar" style={{ display: 'flex', gap: 4, marginBottom: 20, borderBottom: '1px solid #e6e9f0', paddingBottom: 12, overflowX: 'auto', flexShrink: 0 }}>
           <button style={tabStyle('org')} onClick={() => setTab('org')}>Organization</button>
           <button style={tabStyle('transcription')} onClick={() => setTab('transcription')}>Transcription</button>
           <button style={tabStyle('templates')} onClick={() => setTab('templates')}>Task Templates</button>
@@ -73,6 +74,9 @@ export default function SettingsModal({ org, currentUser, onClose, onOrgRenamed 
           <button style={tabStyle('email')} onClick={() => setTab('email')}>Email</button>
           <button style={tabStyle('notifications')} onClick={() => setTab('notifications')}>Notifications</button>
           <button style={tabStyle('calendar')} onClick={() => setTab('calendar')}>Calendar</button>
+          {(currentUser?.role === 'admin' || currentUser?.role === 'project_manager') && (
+            <button style={tabStyle('features')} onClick={() => setTab('features')}>Features</button>
+          )}
         </div>
 
         {/* ── Organization ── */}
@@ -188,6 +192,13 @@ export default function SettingsModal({ org, currentUser, onClose, onOrgRenamed 
         {tab === 'calendar' && (
           <div style={{ overflowY: 'auto', maxHeight: '55vh', paddingRight: 4 }}>
             <CalendarTab currentUser={currentUser} />
+          </div>
+        )}
+
+        {/* ── Features ── */}
+        {tab === 'features' && (
+          <div style={{ overflowY: 'auto', maxHeight: '55vh', paddingRight: 4 }}>
+            <FeaturesTab org={org} currentUser={currentUser} />
           </div>
         )}
 

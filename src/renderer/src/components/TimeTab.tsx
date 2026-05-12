@@ -9,9 +9,11 @@ interface Props {
   projectId: number
   focusTodoId?: number | null
   focusTodoTitle?: string | null
+  showOvertimeAlerts?: boolean
+  budgetMins?: number | null
 }
 
-export default function TimeTab({ projectId, focusTodoId, focusTodoTitle }: Props): JSX.Element {
+export default function TimeTab({ projectId, focusTodoId, focusTodoTitle, showOvertimeAlerts, budgetMins }: Props): JSX.Element {
   const [sessions, setSessions] = useState<TimeSession[]>([])
   const [activeSessions, setActiveSessions] = useState<TimeSession[]>([])
   const [users, setUsers] = useState<User[]>([])
@@ -137,6 +139,38 @@ export default function TimeTab({ projectId, focusTodoId, focusTodoTitle }: Prop
         {exportMsg && <span className="time-export-msg">{exportMsg}</span>}
       </div>
 
+      {budgetMins != null && (() => {
+        const loggedMins = sessions.filter((s) => s.duration_minutes != null).reduce((sum, s) => sum + (s.duration_minutes ?? 0), 0)
+        const pct = Math.min(100, Math.round((loggedMins / budgetMins) * 100))
+        const overBudget = loggedMins > budgetMins
+        const barColor = overBudget ? '#e2445c' : pct >= 80 ? '#ff7b00' : '#0073ea'
+        const fmtMins = (m: number) => { const h = Math.floor(m / 60); const min = m % 60; return min > 0 ? `${h}h ${min}m` : `${h}h` }
+        return (
+          <div style={{ margin: '0 0 16px', padding: '14px 16px', background: '#f9fafb', border: '1px solid #e6e9f0', borderRadius: 10 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: '#323338' }}>Time Budget</span>
+              <span style={{ fontSize: 12, fontWeight: 600, color: overBudget ? '#e2445c' : '#676879' }}>
+                {fmtMins(loggedMins)} / {fmtMins(budgetMins)} &nbsp;
+                <span style={{ fontSize: 11, fontWeight: 400 }}>({pct}%)</span>
+              </span>
+            </div>
+            <div style={{ height: 8, background: '#e6e9f0', borderRadius: 4, overflow: 'hidden' }}>
+              <div style={{ height: '100%', width: `${pct}%`, background: barColor, borderRadius: 4, transition: 'width 0.4s ease' }} />
+            </div>
+            {overBudget && (
+              <div style={{ marginTop: 6, fontSize: 11, color: '#e2445c', fontWeight: 600 }}>
+                Over budget by {fmtMins(loggedMins - budgetMins)}
+              </div>
+            )}
+            {!overBudget && (
+              <div style={{ marginTop: 6, fontSize: 11, color: '#9699a6' }}>
+                {fmtMins(budgetMins - loggedMins)} remaining
+              </div>
+            )}
+          </div>
+        )
+      })()}
+
       <ActiveTimer
         currentUser={currentUser}
         activeSessions={activeSessions}
@@ -149,7 +183,7 @@ export default function TimeTab({ projectId, focusTodoId, focusTodoTitle }: Prop
         onResume={handleResume}
       />
       <HoursChart sessions={sessions} />
-      <TimeStats sessions={sessions} users={users} onSessionDeleted={refresh} />
+      <TimeStats sessions={sessions} users={users} onSessionDeleted={refresh} showOvertimeAlerts={showOvertimeAlerts} />
 
       {showLogModal && currentUser && (
         <LogTimeModal

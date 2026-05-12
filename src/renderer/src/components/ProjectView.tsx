@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import type { Project, Todo } from '../../../shared/types'
+import type { Project, Todo, OrgFeatures, TimeSession } from '../../../shared/types'
 import FileBrowser from './FileBrowser'
 import LinkedMeetings from './LinkedMeetings'
 import TimeTab from './TimeTab'
@@ -11,6 +11,7 @@ type MainTab = 'overview' | 'time'
 
 interface Props {
   project: Project
+  orgFeatures?: OrgFeatures | null
   defaultTab?: MainTab
   focusTodoId?: number | null
   focusTodoTitle?: string | null
@@ -19,7 +20,7 @@ interface Props {
   onProjectArchived?: () => void
 }
 
-function ProjectView({ project, defaultTab, focusTodoId, focusTodoTitle, onProjectUpdated, onProjectDeleted, onProjectArchived }: Props): JSX.Element {
+function ProjectView({ project, orgFeatures, defaultTab, focusTodoId, focusTodoTitle, onProjectUpdated, onProjectDeleted, onProjectArchived }: Props): JSX.Element {
   const [activeTab, setActiveTab] = useState<MainTab>(defaultTab ?? 'overview')
   const [activeTodo, setActiveTodo] = useState<{ id: number; title: string } | null>(
     focusTodoId ? { id: focusTodoId, title: focusTodoTitle ?? '' } : null
@@ -29,6 +30,7 @@ function ProjectView({ project, defaultTab, focusTodoId, focusTodoTitle, onProje
   const [showEdit, setShowEdit] = useState(false)
   const [showMenu, setShowMenu] = useState(false)
   const [taskDateWarning, setTaskDateWarning] = useState<string | null>(null)
+  const [totalSessionMins, setTotalSessionMins] = useState<number | null>(null)
   const menuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -73,6 +75,23 @@ function ProjectView({ project, defaultTab, focusTodoId, focusTodoTitle, onProje
     checkNas()
   }, [project.id, loadTasks, checkNas])
 
+  useEffect(() => {
+    if (!orgFeatures?.time_budgets) { setTotalSessionMins(null); return }
+    window.api.time.getSessionsByProject(project.id).then((sessions) => {
+      const mins = (sessions as TimeSession[])
+        .filter((s) => s.duration_minutes != null)
+        .reduce((sum, s) => sum + (s.duration_minutes ?? 0), 0)
+      setTotalSessionMins(mins)
+    })
+  }, [project.id, orgFeatures?.time_budgets])
+
+  const budgetMins = (() => {
+    if (!orgFeatures?.time_budgets) return null
+    if (project.time_budget_hours) return project.time_budget_hours * 60
+    const taskEst = tasks.reduce((sum, t) => sum + (t.estimated_minutes ?? 0), 0)
+    return taskEst > 0 ? taskEst : null
+  })()
+
   const handleOpenTask = useCallback((todo: Todo) => {
     setActiveTodo({ id: todo.id, title: todo.title })
     setActiveTab('time')
@@ -107,6 +126,22 @@ function ProjectView({ project, defaultTab, focusTodoId, focusTodoTitle, onProje
                 {projectOverdue ? '⚠ ' : ''}Due {new Date(project.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
               </span>
             )}
+            {orgFeatures?.time_budgets && totalSessionMins !== null && (() => {
+              const logged = totalSessionMins
+              const overBudget = budgetMins !== null && logged > budgetMins
+              const pct = budgetMins ? Math.round((logged / budgetMins) * 100) : null
+              const fmtMins = (m: number) => `${Math.floor(m / 60)}h ${m % 60}m`
+              return (
+                <span style={{
+                  fontSize: 11, fontWeight: 600, padding: '2px 9px', borderRadius: 10,
+                  background: overBudget ? '#fdeef1' : '#f0f7ff',
+                  color: overBudget ? '#d83a52' : '#0073ea',
+                  border: `1px solid ${overBudget ? '#f5b0bc' : '#b3d5ff'}`
+                }}>
+                  ⏱ {fmtMins(logged)}{budgetMins ? ` / ${fmtMins(budgetMins)}${pct !== null ? ` (${pct}%)` : ''}` : ' logged'}
+                </span>
+              )
+            })()}
           </div>
         </div>
         <div className="project-header-actions">
@@ -194,12 +229,15 @@ function ProjectView({ project, defaultTab, focusTodoId, focusTodoTitle, onProje
           projectId={project.id}
           focusTodoId={activeTodo?.id ?? focusTodoId}
           focusTodoTitle={activeTodo?.title ?? focusTodoTitle}
+          showOvertimeAlerts={orgFeatures?.overtime_alerts ?? false}
+          budgetMins={budgetMins}
         />
       ) : (
         <div className="content-area">
           <div className="phase-content">
-            {/* Gantt from task due dates */}
-            <TaskGantt tasks={tasks} projectDueDate={project.due_date} />
+            {orgFeatures?.gantt_chart !== false && (
+              <TaskGantt tasks={tasks} projectDueDate={project.due_date} />
+            )}
 
             {/* Meetings */}
             <LinkedMeetings projectId={project.id} nasPath={project.nas_path} />
@@ -208,7 +246,9 @@ function ProjectView({ project, defaultTab, focusTodoId, focusTodoTitle, onProje
             <div className="phase-cards-section">
               <TodoList
                 projectId={project.id}
+                timeBudgets={!!orgFeatures?.time_budgets}
                 onChanged={handleTaskChanged}
+                onTasksChanged={setTasks}
                 onOpenTask={handleOpenTask}
               />
             </div>
@@ -221,6 +261,7 @@ function ProjectView({ project, defaultTab, focusTodoId, focusTodoTitle, onProje
       {showEdit && (
         <EditProjectModal
           project={project}
+          timeBudgets={!!orgFeatures?.time_budgets}
           onClose={() => setShowEdit(false)}
           onSaved={() => { setShowEdit(false); onProjectUpdated() }}
         />

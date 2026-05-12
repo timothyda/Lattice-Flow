@@ -34,6 +34,8 @@ import {
   listProjectClientNotifications, upsertProjectClientNotification, removeProjectClientNotification, getAvailableContactsForProject
 } from './db/email_prefs'
 import { getAuthStatus, login, logout, getCurrentUser, setupOrg, activateAccount, generateInvite, migrateFromMsal, resetWithRecoveryCode, generateRecoveryCode } from './auth'
+import { getOrgFeatures, setOrgFeature } from './db/org_features'
+import { listComments, addComment, deleteComment, markCommentsRead, getUnreadCountsForTodos } from './db/task_comments'
 import { transcribeRecording, moveRecording } from './whisper'
 import {
   getScreenSources, saveRecording,
@@ -58,6 +60,7 @@ import type {
   SmtpConfig,
   NewClientContact, UpdateClientContact,
   UserEmailPrefs,
+  OrgFeatureKey,
 } from '../shared/types'
 
 export function registerIpcHandlers(): void {
@@ -155,7 +158,10 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('meetings:list-linked', () => listLinkedMeetings())
 
   // ── Users ──────────────────────────────────────────────────────────────────
-  ipcMain.handle('users:list', (_e, orgId?: number) => listUsers(orgId))
+  ipcMain.handle('users:list', (_e, orgId?: number) => {
+    const resolvedOrgId = orgId ?? getCurrentUser()?.organization_id
+    return listUsers(resolvedOrgId)
+  })
   ipcMain.handle('users:get', (_e, id: number) => getUserById(id))
   ipcMain.handle('users:create-invited', (_e, data: NewInvitedUser) => {
     try {
@@ -400,4 +406,22 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('whisper:move-recording', async (_e, srcPath: string, destDir: string) => {
     return await moveRecording(srcPath, destDir)
   })
+
+  // ── Org Features ───────────────────────────────────────────────────────────
+  ipcMain.handle('orgFeatures:get', (_e, orgId: number) => getOrgFeatures(orgId))
+  ipcMain.handle('orgFeatures:set', (_e, orgId: number, feature: OrgFeatureKey, enabled: boolean) =>
+    setOrgFeature(orgId, feature, enabled)
+  )
+
+  // ── Task Comments ──────────────────────────────────────────────────────────
+  ipcMain.handle('comments:list', (_e, todoId: number) => listComments(todoId))
+  ipcMain.handle('comments:add', (_e, todoId: number, userId: number, userName: string, content: string) => {
+    const user = getCurrentUser()
+    return addComment(todoId, userId, userName, content, user?.organization_id ?? null)
+  })
+  ipcMain.handle('comments:delete', (_e, id: number, userId: number) => deleteComment(id, userId))
+  ipcMain.handle('comments:markRead', (_e, todoId: number, userId: number) => markCommentsRead(todoId, userId))
+  ipcMain.handle('comments:unreadCounts', (_e, todoIds: number[], userId: number) =>
+    getUnreadCountsForTodos(todoIds, userId)
+  )
 }
