@@ -20,34 +20,28 @@ function dbHasData(dbPath: string): boolean {
 
 function resolveDbPath(): string {
   const userDataDir = app.getPath('userData')
-  const currentPath = join(userDataDir, 'pm-app-v2.db')
-  const migrationFlagPath = join(userDataDir, '.migrated-from-pm-app')
+  const currentPath = join(userDataDir, 'opus-flo.db')
 
-  // Migration runs exactly once (flag file guards re-runs).
-  // We do it unconditionally so the legacy DB always wins on first boot,
-  // even if an empty/test DB already exists at the current path.
-  if (!existsSync(migrationFlagPath)) {
-    if (!existsSync(userDataDir)) mkdirSync(userDataDir, { recursive: true })
+  if (!existsSync(userDataDir)) mkdirSync(userDataDir, { recursive: true })
 
+  // One-time migration: copy pm-app-v2.db → opus-flo.db on first run after rename.
+  if (!existsSync(currentPath)) {
+    const prevPath = join(userDataDir, 'pm-app-v2.db')
     const legacyPath = join(app.getPath('appData'), 'pm-app', 'pm-app-v2.db')
-    if (existsSync(legacyPath) && dbHasData(legacyPath)) {
-      // Checkpoint WAL into the main file so the copy is a clean snapshot.
+    const source = existsSync(prevPath) && dbHasData(prevPath) ? prevPath
+                 : existsSync(legacyPath) && dbHasData(legacyPath) ? legacyPath
+                 : null
+    if (source) {
       try {
-        const tmp = new (require('better-sqlite3') as typeof Database)(legacyPath)
+        const tmp = new (require('better-sqlite3') as typeof Database)(source)
         tmp.pragma('wal_checkpoint(TRUNCATE)')
         tmp.close()
       } catch { /* non-fatal */ }
-
-      copyFileSync(legacyPath, currentPath)
-
-      // Remove any stale journal files at the destination.
+      copyFileSync(source, currentPath)
       for (const ext of ['-shm', '-wal']) {
         try { if (existsSync(currentPath + ext)) unlinkSync(currentPath + ext) } catch {}
       }
     }
-
-    // Write the flag regardless — prevents re-checking on every subsequent boot.
-    try { writeFileSync(migrationFlagPath, new Date().toISOString()) } catch {}
   }
 
   return currentPath

@@ -1,7 +1,7 @@
 {
-  "name": "lattice-flow",
+  "name": "opus-flo",
   "version": "1.0.0",
-  "description": "Lattice Flow — Project Management for Creative Teams",
+  "description": "Opus Flo — Project Management for Creative Teams",
   "main": "out/main/index.js",
   "scripts": {
     "dev": "electron-vite dev",
