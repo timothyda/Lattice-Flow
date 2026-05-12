@@ -1,6 +1,7 @@
 import { getDb } from '.'
 import type { TaskAssignment, TaskStatus } from '../../shared/types'
 import { getOrgRouting } from './role_routing'
+import { createNotification } from './notifications'
 
 // ── Routing logic ─────────────────────────────────────────────────────────────
 
@@ -11,7 +12,7 @@ import { getOrgRouting } from './role_routing'
  * - For 'complete' / 'planning': clear all assignments.
  * - For 'in_progress': leave existing assignments unchanged.
  */
-export function routeTask(todoId: number, newStatus: TaskStatus, orgId: number): void {
+export function routeTask(todoId: number, newStatus: TaskStatus, orgId: number, actingUserId?: number): void {
   const db = getDb()
 
   if (newStatus === 'in_progress') return  // keep whoever is assigned
@@ -46,11 +47,22 @@ export function routeTask(todoId: number, newStatus: TaskStatus, orgId: number):
     SELECT id FROM users WHERE organization_id = ? AND role IN (${targetRoles.map(() => '?').join(', ')})
   `).all(orgId, ...targetRoles) as { id: number }[]
 
+  const todo = db.prepare('SELECT title FROM todos WHERE id = ?').get(todoId) as { title: string } | undefined
+
   const insert = db.prepare(
     'INSERT OR IGNORE INTO task_assignments (todo_id, user_id) VALUES (?, ?)'
   )
   for (const u of targetUsers) {
     insert.run(todoId, u.id)
+    if (u.id !== actingUserId && todo) {
+      createNotification({
+        organization_id: orgId,
+        user_id: u.id,
+        todo_id: todoId,
+        type: 'task_assigned',
+        message: `You have been assigned to "${todo.title}"`
+      })
+    }
   }
 }
 

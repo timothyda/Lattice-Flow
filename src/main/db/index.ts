@@ -1,7 +1,7 @@
 import Database from 'better-sqlite3'
 import { app } from 'electron'
 import { join } from 'path'
-import { existsSync, mkdirSync, copyFileSync, unlinkSync, writeFileSync } from 'fs'
+import { existsSync, mkdirSync, copyFileSync, unlinkSync } from 'fs'
 
 let db: Database.Database | null = null
 
@@ -20,34 +20,31 @@ function dbHasData(dbPath: string): boolean {
 
 function resolveDbPath(): string {
   const userDataDir = app.getPath('userData')
-  const currentPath = join(userDataDir, 'pm-app-v2.db')
-  const migrationFlagPath = join(userDataDir, '.migrated-from-pm-app')
+  const currentPath = join(userDataDir, 'opus-flo.db')
 
-  // Migration runs exactly once (flag file guards re-runs).
-  // We do it unconditionally so the legacy DB always wins on first boot,
-  // even if an empty/test DB already exists at the current path.
-  if (!existsSync(migrationFlagPath)) {
-    if (!existsSync(userDataDir)) mkdirSync(userDataDir, { recursive: true })
+  if (!existsSync(userDataDir)) mkdirSync(userDataDir, { recursive: true })
 
-    const legacyPath = join(app.getPath('appData'), 'pm-app', 'pm-app-v2.db')
-    if (existsSync(legacyPath) && dbHasData(legacyPath)) {
-      // Checkpoint WAL into the main file so the copy is a clean snapshot.
+  // One-time migration: copy previous DB → opus-flo.db on first run after rename.
+  if (!existsSync(currentPath) || !dbHasData(currentPath)) {
+    const appData = app.getPath('appData')
+    const prevPath    = join(userDataDir, 'pm-app-v2.db')
+    const latticePath = join(appData, 'lattice-flow', 'pm-app-v2.db')
+    const legacyPath  = join(appData, 'pm-app', 'pm-app-v2.db')
+    const source = existsSync(prevPath)    && dbHasData(prevPath)    ? prevPath
+                 : existsSync(latticePath) && dbHasData(latticePath) ? latticePath
+                 : existsSync(legacyPath)  && dbHasData(legacyPath)  ? legacyPath
+                 : null
+    if (source) {
       try {
-        const tmp = new (require('better-sqlite3') as typeof Database)(legacyPath)
+        const tmp = new (require('better-sqlite3') as typeof Database)(source)
         tmp.pragma('wal_checkpoint(TRUNCATE)')
         tmp.close()
       } catch { /* non-fatal */ }
-
-      copyFileSync(legacyPath, currentPath)
-
-      // Remove any stale journal files at the destination.
+      copyFileSync(source, currentPath)
       for (const ext of ['-shm', '-wal']) {
         try { if (existsSync(currentPath + ext)) unlinkSync(currentPath + ext) } catch {}
       }
     }
-
-    // Write the flag regardless — prevents re-checking on every subsequent boot.
-    try { writeFileSync(migrationFlagPath, new Date().toISOString()) } catch {}
   }
 
   return currentPath
@@ -322,6 +319,27 @@ function runAlterMigrations(db: Database.Database): void {
       user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       UNIQUE(comment_id, user_id)
     );
+<<<<<<< HEAD
+=======
+  `)
+
+  // Seed task_assignments for any existing tasks that were in a routable status
+  // before the routing system existed. Uses hardcoded defaults matching STATUS_ROUTING.
+  db.exec(`
+    INSERT OR IGNORE INTO task_assignments (todo_id, user_id)
+    SELECT t.id, u.id
+    FROM todos t
+    JOIN projects p ON t.project_id = p.id
+    JOIN users u ON u.organization_id = p.organization_id
+    WHERE NOT EXISTS (SELECT 1 FROM task_assignments ta WHERE ta.todo_id = t.id)
+      AND (
+        (t.task_status = 'ready_for_design' AND u.role IN ('lead_designer', 'designer'))
+        OR (t.task_status = 'ready_for_review' AND u.role IN ('lead_designer', 'project_manager'))
+        OR (t.task_status = 'pm_in_progress'   AND u.role = 'project_manager')
+        OR (t.task_status = 'need_it'           AND u.role = 'it')
+        OR (t.task_status = 'hold'              AND u.role IN ('project_manager', 'lead_designer'))
+      )
+>>>>>>> d73235c65971b18ab0583fdf4bb9205ab81a42e1
   `)
 }
 

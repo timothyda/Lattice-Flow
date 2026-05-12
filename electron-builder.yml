@@ -1,5 +1,5 @@
-appId: com.latticeflow
-productName: Lattice Flow
+appId: com.opusflo
+productName: Opus Flo
 directories:
   buildResources: build
   output: dist
@@ -10,7 +10,7 @@ asarUnpack:
   - node_modules/bindings/**
   - node_modules/file-uri-to-path/**
 win:
-  executableName: lattice-flow
+  executableName: opus-flo
 nsis:
   artifactName: ${name}-${version}-setup.${ext}
   shortcutName: ${productName}
