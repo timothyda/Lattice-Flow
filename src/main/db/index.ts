@@ -319,8 +319,6 @@ function runAlterMigrations(db: Database.Database): void {
       user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       UNIQUE(comment_id, user_id)
     );
-<<<<<<< HEAD
-=======
   `)
 
   // Seed task_assignments for any existing tasks that were in a routable status
@@ -339,7 +337,6 @@ function runAlterMigrations(db: Database.Database): void {
         OR (t.task_status = 'need_it'           AND u.role = 'it')
         OR (t.task_status = 'hold'              AND u.role IN ('project_manager', 'lead_designer'))
       )
->>>>>>> d73235c65971b18ab0583fdf4bb9205ab81a42e1
   `)
 }
 
