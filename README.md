@@ -58,7 +58,7 @@ node --version   # should print v20.x.x
 │   │    JWT auth  •  Port 3847        │   │
 │   └──────────────────────────────────┘   │
 │         ▲            ▲           ▲       │
-│   [User 1]      [User 2]   [User 3…15]  │
+│   [User 1]      [User 2]   [User 3…15]   │
 │   Electron      Electron     Electron    │
 └──────────────────────────────────────────┘
 ```
