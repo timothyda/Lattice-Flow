@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import ServerConnect from './components/setup/ServerConnect'
 import OrgSetup from './components/setup/OrgSetup'
 import SignInView from './components/setup/SignInView'
 import IconRail from './components/layout/IconRail'
@@ -15,8 +16,26 @@ import type { Organization, User, Client, Project, AuthUser, Todo, OrgFeatures }
 import './App.css'
 
 type MainView = 'home' | 'project' | 'client' | 'calendar' | 'users'
+type ConnState = 'unknown' | 'no_server' | 'connecting' | 'connected' | 'reconnecting' | 'disconnected' | 'auth_expired'
+
+function ConnectionBanner({ state, onRetry, onChangeUrl }: { state: ConnState; onRetry: () => void; onChangeUrl: () => void }): JSX.Element | null {
+  if (state === 'reconnecting') return (
+    <div style={{ background: '#f59e0b', color: '#fff', fontSize: 12, fontWeight: 600, textAlign: 'center', padding: '6px 16px', position: 'fixed', top: 0, left: 0, right: 0, zIndex: 9999 }}>
+      Connection lost — reconnecting…
+    </div>
+  )
+  if (state === 'disconnected') return (
+    <div style={{ background: '#e2445c', color: '#fff', fontSize: 12, fontWeight: 600, textAlign: 'center', padding: '6px 16px', position: 'fixed', top: 0, left: 0, right: 0, zIndex: 9999, display: 'flex', gap: 12, alignItems: 'center', justifyContent: 'center' }}>
+      <span>Cannot reach server.</span>
+      <button onClick={onRetry} style={{ background: 'rgba(255,255,255,0.25)', border: 'none', color: '#fff', borderRadius: 4, padding: '2px 10px', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>Retry</button>
+      <button onClick={onChangeUrl} style={{ background: 'rgba(255,255,255,0.25)', border: 'none', color: '#fff', borderRadius: 4, padding: '2px 10px', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>Change Server URL</button>
+    </div>
+  )
+  return null
+}
 
 function App(): JSX.Element {
+  const [connState, setConnState] = useState<ConnState>('unknown')
   const [org, setOrg] = useState<Organization | null>(null)
   const [orgLoading, setOrgLoading] = useState(true)
   const [showOrgSetup, setShowOrgSetup] = useState(false)
@@ -37,9 +56,23 @@ function App(): JSX.Element {
   const [showArchive, setShowArchive] = useState(false)
   const [orgFeatures, setOrgFeatures] = useState<OrgFeatures | null>(null)
 
+  // ── Connection state ───────────────────────────────────────────────────────
+
+  useEffect(() => {
+    window.api.connection.getState().then((s) => setConnState(s as ConnState))
+    const unsub = window.api.connection.onStateChange((s) => {
+      setConnState(s as ConnState)
+      // When auth expires, force re-auth
+      if (s === 'auth_expired') { setAuthUser(null); setCurrentUser(null) }
+    })
+    return unsub
+  }, [])
+
   // ── Initial load ───────────────────────────────────────────────────────────
 
   useEffect(() => {
+    // Don't attempt to load data until we have a server connection
+    if (connState === 'unknown' || connState === 'no_server' || connState === 'connecting') return
     Promise.all([
       window.api.org.get(),
       window.api.auth.status(),
@@ -52,7 +85,7 @@ function App(): JSX.Element {
       if (prefs.lastClientId) setSelectedClientId(prefs.lastClientId)
       if (prefs.lastProjectId) { setSelectedProjectId(prefs.lastProjectId); setMainView('project') }
     }).finally(() => setOrgLoading(false))
-  }, [])
+  }, [connState])
 
   useEffect(() => {
     if (!org) return
@@ -198,6 +231,32 @@ function App(): JSX.Element {
 
   // ── Loading / Setup screens ────────────────────────────────────────────────
 
+  // ── Connection gates ───────────────────────────────────────────────────────
+
+  if (connState === 'unknown') {
+    return (
+      <div className="app" style={{ alignItems: 'center', justifyContent: 'center', background: '#f5f6f8' }}>
+        <div style={{ color: '#676879', fontSize: 14 }}>Connecting…</div>
+      </div>
+    )
+  }
+
+  if (connState === 'no_server') {
+    return (
+      <div className="app" style={{ background: '#f5f6f8' }}>
+        <ServerConnect onConnected={() => setConnState('connecting')} />
+      </div>
+    )
+  }
+
+  if (connState === 'connecting') {
+    return (
+      <div className="app" style={{ alignItems: 'center', justifyContent: 'center', background: '#f5f6f8' }}>
+        <div style={{ color: '#676879', fontSize: 14 }}>Connecting to server…</div>
+      </div>
+    )
+  }
+
   if (orgLoading) {
     return (
       <div className="app" style={{ alignItems: 'center', justifyContent: 'center', background: '#f5f6f8' }}>
@@ -230,6 +289,11 @@ function App(): JSX.Element {
 
   return (
     <div className="app">
+      <ConnectionBanner
+        state={connState}
+        onRetry={() => window.api.connection.retry()}
+        onChangeUrl={() => window.api.connection.clearUrl().then(() => setConnState('no_server'))}
+      />
       {showSettings && (
         <SettingsModal
           org={org}

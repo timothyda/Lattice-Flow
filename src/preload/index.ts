@@ -286,4 +286,26 @@ contextBridge.exposeInMainWorld('api', {
     unreadCounts: (todoIds: number[], userId: number): Promise<Record<number, number>> =>
       ipcRenderer.invoke('comments:unreadCounts', todoIds, userId),
   },
+  connection: {
+    getUrl: (): Promise<string | null> => ipcRenderer.invoke('connection:get-url'),
+    setUrl: (url: string): Promise<{ ok: boolean; error?: string }> => ipcRenderer.invoke('connection:set-url', url),
+    clearUrl: (): Promise<{ ok: boolean }> => ipcRenderer.invoke('connection:clear-url'),
+    test: (url: string): Promise<{ ok: boolean; error?: string }> => ipcRenderer.invoke('connection:test', url),
+    getState: (): Promise<string> => ipcRenderer.invoke('connection:state'),
+    retry: (): Promise<{ ok: boolean }> => ipcRenderer.invoke('connection:retry'),
+    onStateChange: (cb: (state: string) => void): (() => void) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const handler = (_e: any, state: string) => cb(state)
+      ipcRenderer.on('connection:state-changed', handler)
+      return () => ipcRenderer.off('connection:state-changed', handler)
+    },
+  },
+  ws: {
+    onEvent: (cb: (msg: { event: string; payload: unknown }) => void): (() => void) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const handler = (_e: any, msg: { event: string; payload: unknown }) => cb(msg)
+      ipcRenderer.on('ws:event', handler)
+      return () => ipcRenderer.off('ws:event', handler)
+    },
+  },
 })

@@ -2,8 +2,11 @@ import 'dotenv/config'
 import { app, BrowserWindow, protocol, net } from 'electron'
 import { join } from 'path'
 import { pathToFileURL } from 'url'
-import { getDb } from './db'
 import { registerIpcHandlers } from './ipc'
+import { getServerUrl } from './connection-store'
+import { connect, emitConnectionState } from './ws-client'
+import { restoreSession } from './auth'
+import { setAuthExpiredCallback } from './api-client'
 
 // Must be called before app is ready
 protocol.registerSchemesAsPrivileged([
@@ -27,7 +30,7 @@ function createWindow(): void {
   }
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   // Serve local files for image/PDF preview via asset:// URLs
   protocol.handle('asset', (request) => {
     const { searchParams } = new URL(request.url)
@@ -36,9 +39,19 @@ app.whenReady().then(() => {
     return net.fetch(pathToFileURL(filePath).href)
   })
 
-  getDb()
+  // Wire up auth-expired → emit to renderer
+  setAuthExpiredCallback(() => emitConnectionState('auth_expired'))
+
   registerIpcHandlers()
   createWindow()
+
+  // After window is ready: initialise server connection
+  if (getServerUrl()) {
+    await restoreSession()
+    connect()
+  } else {
+    emitConnectionState('no_server')
+  }
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
