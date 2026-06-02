@@ -1,18 +1,23 @@
-# Lattice Flow
+# Opus Flo
 
-A self-hosted project management desktop application built with Electron, React, TypeScript, and SQLite. 
-Designed for creative agencies and small teams — manage clients, projects, tasks, time tracking, meetings, 
-and calendar events from a single window, with all data stored locally on your machine or server.
+A self-hosted project management desktop application built with Electron, React, TypeScript, and SQLite.
+Designed for creative agencies and small teams — manage clients, projects, tasks, time tracking, meetings,
+and calendar events from a single window.
+
+**Multi-user architecture:** a lightweight Node.js server owns the database and runs on your office network or NAS (e.g. Synology via Docker). Each team member runs the Electron client and connects to the shared server over the local network or VPN.
 
 Author: Timothy Alden
+
 ---
 
 ## Table of Contents
 
 - [Prerequisites](#prerequisites)
-- [Installation](#installation)
-- [Configuration](#configuration)
+- [Architecture Overview](#architecture-overview)
+- [Server Setup](#server-setup)
+- [Client Setup](#client-setup)
 - [First Run](#first-run)
+- [Synology NAS Deployment](#synology-nas-deployment)
 - [Features](#features)
 - [Calendar Integration Setup](#calendar-integration-setup)
 - [Email Notifications Setup](#email-notifications-setup)
@@ -40,75 +45,171 @@ node --version   # should print v20.x.x
 
 ---
 
-## Installation
+## Architecture Overview
 
-```bash
-git clone https://github.com/your-org/lattice-flow.git
-cd lattice-flow
-npm install
+```
+┌──────────────────────────────────────────┐
+│           Office Network / VPN           │
+│                                          │
+│   ┌──────────────────────────────────┐   │
+│   │    Server  (server/)             │   │
+│   │    Node.js + Express + WS        │   │
+│   │    Owns opus-flo.db (SQLite)     │   │
+│   │    JWT auth  •  Port 3847        │   │
+│   └──────────────────────────────────┘   │
+│         ▲            ▲           ▲       │
+│   [User 1]      [User 2]   [User 3…15]  │
+│   Electron      Electron     Electron    │
+└──────────────────────────────────────────┘
 ```
 
-`npm install` automatically recompiles native modules (SQLite, bcrypt) for Electron via the `postinstall` script — no extra steps needed.
+- **Server** — runs once, on a dedicated machine or NAS. Owns the SQLite file and handles all data operations over a REST + WebSocket API with JWT authentication.
+- **Client** — the Electron app each team member runs. On first launch it asks for the server URL; after that it connects automatically.
 
 ---
 
-## Configuration
+## Server Setup
 
-All external service credentials are set in a `.env` file in the project root. A template is provided:
+The server lives in the `server/` directory and is a standalone Node.js package.
+
+### 1. Install dependencies
+
+```bash
+cd server
+npm install
+```
+
+> `npm install` compiles `better-sqlite3` for plain Node.js. This is separate from the Electron client's own compilation — both must be installed independently.
+
+### 2. Configure environment
 
 ```bash
 cp .env.example .env
 ```
 
-Then open `.env` and fill in the values for any services you want to enable. **The app runs without any `.env` values** — calendar sync and email notifications will simply be disabled until configured.
-
-### .env quick reference
+Open `server/.env` and set at minimum:
 
 ```env
-# Microsoft Calendar (optional)
-AZURE_CLIENT_ID=
-AZURE_TENANT_ID=common
-
-# Google Calendar (optional)
-GOOGLE_CLIENT_ID=
-GOOGLE_CLIENT_SECRET=
-
-# Zoom (optional)
-ZOOM_CLIENT_ID=
-ZOOM_CLIENT_SECRET=
+PORT=3847
+DB_PATH=./data/opus-flo.db
+JWT_SECRET=replace-with-a-long-random-string
 ```
 
-CalDAV calendar servers (Nextcloud, Baikal, etc.) and SMTP email are configured through the in-app Settings after first run — no `.env` entry needed for those.
+Generate a strong JWT secret:
 
-Full setup instructions for each service are in the [Calendar Integration Setup](#calendar-integration-setup) section below and inside `.env.example`.
+```bash
+node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
+```
 
----
+### 3. Start the server
 
-## First Run
-
-Start the development server:
+**Development (auto-restarts on changes):**
 
 ```bash
 npm run dev
 ```
 
-The first time the app opens, you will be taken through a two-step setup:
+**Production:**
 
-### 1. Organization Setup
+```bash
+npm run build
+npm start
+```
 
-Enter your organization name, your name, email address, and a password. This creates:
-- The organization record in the local database
-- The first admin account
-- A **recovery code** — save this somewhere safe. It is the only way to recover the admin account if the password is lost.
+The server creates the database automatically on first run. Verify it's running:
 
-### 2. Inviting Team Members
+```
+GET http://localhost:3847/health
+→ { "ok": true }
+```
 
-Once logged in as admin, go to the **Team** view (people icon in the sidebar) and click **Invite user**. An invite link is generated that the new user visits to set their own password on first login.
+---
 
-> The database is stored at:
-> - **Windows:** `%APPDATA%\pm-app\pm-app-v2.db`
-> - **macOS:** `~/Library/Application Support/pm-app/pm-app-v2.db`
-> - **Linux:** `~/.config/pm-app/pm-app-v2.db`
+## Client Setup
+
+```bash
+git clone https://github.com/timothyda/Opus-Flo.git
+cd Opus-Flo
+npm install
+```
+
+`npm install` automatically recompiles native modules (bcrypt) for Electron via the `postinstall` script.
+
+Configure the client `.env` for any optional calendar integrations (see [Calendar Integration Setup](#calendar-integration-setup)):
+
+```bash
+cp .env.example .env
+```
+
+Start the client:
+
+```bash
+npm run dev
+```
+
+---
+
+## First Run
+
+### 1. Connect to the server
+
+On first launch the client shows a **"Connect to your organization's server"** screen.
+
+Enter the server URL (e.g. `http://192.168.1.100:3847`) and click **Connect**. The client tests the connection, saves the URL, and proceeds.
+
+> The server URL is stored locally per machine. Each team member enters it once on first launch.
+
+### 2. Organization setup
+
+The first client to connect runs the org setup wizard:
+
+- Organization name
+- Admin name, email, and password
+- A **recovery code** is generated — save it somewhere safe. It is the only way to recover the admin account if the password is lost.
+
+### 3. Inviting team members
+
+Once logged in as admin, go to the **Team** view (people icon in the sidebar) and click **Invite user**. An invite token is generated that the new user enters on their first login to set their password.
+
+---
+
+## Reconnecting
+
+If the connection is lost, a banner appears at the top of the app:
+
+- **Amber banner** — the client is auto-retrying with exponential backoff (2s → 4s → 8s → … → 60s).
+- **Red banner** — retries exhausted. Click **Retry** to try again, or **Change Server URL** to enter a new address.
+
+The server URL can also be changed proactively from the red banner before the connection actually breaks.
+
+---
+
+## Synology NAS Deployment
+
+The server is designed to run as a Docker container on a Synology NAS.
+
+### 1. Install Docker
+
+In Synology DSM, open **Package Center** and install **Container Manager**.
+
+### 2. Create the container
+
+In Container Manager, create a new container from the project image (or build your own — a `Dockerfile` can be added to `server/`):
+
+| Setting | Value |
+|---|---|
+| Image | Your built image |
+| Port | `3847:3847` |
+| Volume | `/volume1/opus-flo/data` → `/app/data` |
+| Environment | `JWT_SECRET`, `PORT`, `DB_PATH=/app/data/opus-flo.db` |
+
+### 3. HTTPS (recommended)
+
+Use Synology's built-in **Reverse Proxy** (Control Panel → Login Portal → Advanced → Reverse Proxy) with a Let's Encrypt certificate to expose the server over HTTPS. Team members can then connect via `https://your-nas.synology.me:3847` — or over your company VPN for remote access.
+
+### 4. Backups
+
+The entire database is a single file at the volume path you configured. Back it up with Synology's HyperBackup or any standard file backup tool. The server runs SQLite in WAL mode, so the file is safe to copy while the server is running.
 
 ---
 
@@ -116,7 +217,7 @@ Once logged in as admin, go to the **Team** view (people icon in the sidebar) an
 
 ### Clients & Projects
 - Hierarchical sidebar: clients expand to show their projects
-- Client dashboard with logo, description, tenure, contact information, and linked projects
+- Client dashboard with logo, description, contact info, and linked projects
 - Per-client contacts with roles (separate from the primary contact)
 - Archive clients and projects without deleting them
 
@@ -126,6 +227,7 @@ Once logged in as admin, go to the **Team** view (people icon in the sidebar) an
 - Priority levels, due dates, assignees, and subtasks from templates
 - **Role routing** (Settings → Roles): configure which roles are automatically assigned when a task moves to a given status
 - **Task templates** (Settings → Task Templates): reusable task lists per project type
+- Recurring tasks with configurable frequency
 
 ### Time Tracking
 - Clock in/out against a project or specific task
@@ -137,6 +239,8 @@ Once logged in as admin, go to the **Team** view (people icon in the sidebar) an
 - Events are color-coded and labeled by source account
 - Link any calendar event to a project as a meeting record
 
+> Calendar accounts are per-machine (OAuth tokens stay on the local device).
+
 ### Meetings
 - Link calendar events to projects
 - Record screen/audio during meetings (requires Whisper + recorder setup)
@@ -144,6 +248,7 @@ Once logged in as admin, go to the **Team** view (people icon in the sidebar) an
 
 ### Notifications
 - In-app notification bell for task assignments, status changes, and completions
+- Real-time updates pushed to all connected clients via WebSocket
 - Email notifications via SMTP (Settings → Email / Notifications)
 - Per-user opt-in controls for each notification type
 
@@ -175,16 +280,16 @@ Events appear in the **Calendar** view, color-coded by source account. Any event
 ### Microsoft Calendar
 
 1. Go to [Azure Portal](https://portal.azure.com) → **Entra ID → App registrations → New registration**
-2. Name it anything (e.g. "PM App Calendar")
+2. Name it anything (e.g. "Opus Flo Calendar")
 3. Supported account types: **Accounts in any organizational directory and personal Microsoft accounts**
 4. Platform: **Mobile and desktop applications**
-5. Redirect URI: `http://localhost` (the app uses a random port at runtime — register the base URI without a port)
-6. After creating, go to **API permissions → Add a permission → Microsoft Graph → Delegated:**
+5. Redirect URI: `http://localhost`
+6. Go to **API permissions → Add a permission → Microsoft Graph → Delegated:**
    - `User.Read`
    - `Calendars.Read`
    - `offline_access`
 7. Grant admin consent
-8. Copy the **Application (client) ID** into `.env`:
+8. Copy the **Application (client) ID** into the client `.env`:
    ```env
    AZURE_CLIENT_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
    AZURE_TENANT_ID=common
@@ -195,26 +300,26 @@ Events appear in the **Calendar** view, color-coded by source account. Any event
 ### Google Calendar
 
 1. Go to [Google Cloud Console](https://console.cloud.google.com) → **APIs & Services → Library**
-2. Search for and enable **Google Calendar API**
-3. Go to **APIs & Services → Credentials → Create Credentials → OAuth client ID**
+2. Enable **Google Calendar API**
+3. Go to **Credentials → Create Credentials → OAuth client ID**
 4. Application type: **Desktop app**
-5. Copy the **Client ID** and **Client secret** into `.env`:
+5. Copy into the client `.env`:
    ```env
    GOOGLE_CLIENT_ID=xxxxxxxxxx.apps.googleusercontent.com
    GOOGLE_CLIENT_SECRET=GOCSPX-xxxxxxxxxx
    ```
-6. In **OAuth consent screen**, add the scope `https://www.googleapis.com/auth/calendar.readonly`
+6. In **OAuth consent screen**, add scope `https://www.googleapis.com/auth/calendar.readonly`
 
-> If your Google Cloud project is in "Testing" mode, add each user's Google account as a test user under **OAuth consent screen → Test users**.
+> If your project is in "Testing" mode, add each user's Google account as a test user.
 
 ---
 
 ### Zoom
 
 1. Go to [Zoom Marketplace](https://marketplace.zoom.us/develop/create) → **General App**
-2. In **OAuth** settings, set Redirect URL: `http://localhost`
-3. Add scopes: `meeting:read:list_meetings`, `user:read:user`
-4. Copy **Client ID** and **Client Secret** into `.env`:
+2. Redirect URL: `http://localhost`
+3. Scopes: `meeting:read:list_meetings`, `user:read:user`
+4. Copy into the client `.env`:
    ```env
    ZOOM_CLIENT_ID=xxxxxxxxxx
    ZOOM_CLIENT_SECRET=xxxxxxxxxxxxxxxxxxxxxxxxxx
@@ -230,10 +335,10 @@ No `.env` configuration needed. In **Settings → Calendar**, click **Add CalDAV
 |---|---|
 | Server URL | `https://nextcloud.example.com` |
 | Username | `your@email.com` or your username |
-| Password | Your account password or an **app password** (recommended) |
+| Password | Your account password or an app password (recommended) |
 | Display label | Optional — e.g. "Work" |
 
-The app performs automatic CalDAV discovery (RFC 6764) — provide the server root URL and it will find your calendars automatically. Alternatively, you can provide a specific calendar URL directly.
+The app performs automatic CalDAV discovery — provide the server root URL and it will find your calendars automatically.
 
 > **Nextcloud users:** If your instance has 2FA enabled, create a dedicated app password in Nextcloud → Settings → Security → Devices & sessions.
 
@@ -241,7 +346,7 @@ The app performs automatic CalDAV discovery (RFC 6764) — provide the server ro
 
 ## Email Notifications Setup
 
-Go to **Settings → Email** and enter your SMTP server details. Any standard SMTP server works (SendGrid, Mailgun, Gmail, your own Postfix, Synology MailPlus, etc.).
+Go to **Settings → Email** and enter your SMTP server details. Any standard SMTP server works (SendGrid, Mailgun, Gmail, Synology MailPlus, etc.).
 
 | Field | Example |
 |---|---|
@@ -250,16 +355,12 @@ Go to **Settings → Email** and enter your SMTP server details. Any standard SM
 | Secure (TLS) | On for port 465, Off for 587 |
 | Username | `apikey` (SendGrid) or your email |
 | Password | SMTP password or API key |
-| From name | `PM App` |
+| From name | `Opus Flo` |
 | From email | `notifications@yourdomain.com` |
 
-Click **Test Connection** to verify the settings before saving.
+Click **Test Connection** to verify before saving.
 
-Each user can control which notifications they receive in **Settings → Notifications**:
-- Task assigned to me
-- Task completed
-- Status changes
-- Meeting scheduled
+> SMTP configuration is stored locally on each machine. In a future release this will move to the server so only the admin needs to configure it.
 
 ---
 
@@ -275,6 +376,8 @@ Go to **Settings → Transcription** and follow the status indicators:
 
 Once all three show green, you can record meetings from any project's Meetings tab and transcribe them with one click.
 
+> Whisper files are stored per machine — each team member who wants transcription sets this up independently.
+
 ---
 
 ## Building a Distributable Package
@@ -286,28 +389,34 @@ npm run package
 ```
 
 Output is placed in `dist/`:
-- **Windows:** `pm-app-1.0.0-setup.exe` (NSIS installer)
+- **Windows:** NSIS installer (`.exe`)
 - **macOS:** `.dmg`
 - **Linux:** `.AppImage` and `.deb`
 
-To build only (without packaging):
-
-```bash
-npm run build
-```
-
-> The packaged app uses Electron's `safeStorage` API to encrypt stored credentials (calendar tokens, CalDAV passwords). These are tied to the OS user account and machine — they cannot be transferred between machines by copying the database file.
+Distribute the installer to each team member. They install and run the app, then enter the server URL on first launch.
 
 ---
 
 ## Tech Stack
+
+### Client (Electron app)
 
 | Layer | Technology |
 |---|---|
 | Desktop shell | [Electron](https://www.electronjs.org/) 33 |
 | Frontend | [React](https://react.dev/) 18 + TypeScript |
 | Build tool | [electron-vite](https://electron-vite.org/) + Vite 5 |
-| Database | [SQLite](https://www.sqlite.org/) via better-sqlite3 |
-| Auth | bcryptjs + Electron safeStorage |
+| Auth | JWT (stored via Electron safeStorage) |
 | Email | nodemailer |
 | Packaging | electron-builder |
+
+### Server
+
+| Layer | Technology |
+|---|---|
+| Runtime | Node.js 20 |
+| HTTP | Express 4 |
+| Real-time | WebSocket (`ws`) |
+| Database | SQLite via better-sqlite3 |
+| Auth | bcryptjs + JSON Web Tokens |
+| Deployment | Docker (Synology NAS or any Linux host) |
