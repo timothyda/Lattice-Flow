@@ -25,6 +25,7 @@ import recentFilesRoutes from './routes/recent-files'
 import orgFeaturesRoutes from './routes/org-features'
 import commentRoutes from './routes/comments'
 import emailPrefsRoutes from './routes/email-prefs'
+import taskFilesRoutes from './routes/task-files'
 
 // Initialise DB on startup (runs migrations)
 getDb()
@@ -55,6 +56,7 @@ app.use('/recent-files',  recentFilesRoutes)
 app.use('/org-features',  orgFeaturesRoutes)
 app.use('/comments',      commentRoutes)
 app.use('/email-prefs',   emailPrefsRoutes)
+app.use('/task-files',    taskFilesRoutes)
 
 // ── WebSocket ──────────────────────────────────────────────────────────────────
 

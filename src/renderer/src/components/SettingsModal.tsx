@@ -120,7 +120,7 @@ export default function SettingsModal({ org, currentUser, onClose, onOrgRenamed 
             <div className="settings-status-row">
               <span className={`settings-status-dot${status?.cliExists ? ' ok' : ''}`} />
               <div className="settings-status-info">
-                <strong>Whisper CLI</strong> (main.exe)
+                <strong>Whisper CLI</strong> (main.exe or whisper-cli.exe)
                 <span className={`settings-status-label${status?.cliExists ? ' ok' : ''}`}>
                   {status?.cliExists ? 'Found' : 'Not found'}
                 </span>
@@ -135,7 +135,7 @@ export default function SettingsModal({ org, currentUser, onClose, onOrgRenamed 
               <div className="settings-status-info">
                 <strong>Whisper.dll</strong>
                 <span className={`settings-status-label${status?.dllExists ? ' ok' : ''}`}>
-                  {status?.dllExists ? 'Found' : 'Missing — copy Whisper.dll from your cli folder into the whisper folder above'}
+                  {status?.dllExists ? 'Found' : 'Missing — use Re-import CLI to copy it automatically from your whisper.cpp folder'}
                 </span>
               </div>
               {!status?.dllExists && (

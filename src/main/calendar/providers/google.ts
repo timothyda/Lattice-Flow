@@ -4,7 +4,7 @@ import { GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET } from '../../auth/config'
 import type { AccountWithSecrets } from '../../db/calendar_accounts'
 import type { CalendarEvent } from '../../../shared/types'
 
-const SCOPES = 'https://www.googleapis.com/auth/calendar.readonly'
+const SCOPES = 'https://www.googleapis.com/auth/calendar.readonly email profile'
 const TOKEN_URL = 'https://oauth2.googleapis.com/token'
 
 export async function connectGoogle(): Promise<{

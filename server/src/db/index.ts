@@ -76,7 +76,18 @@ function runAlterMigrations(db: Database.Database): void {
   if (!todoCols4.includes('start_date'))        db.exec('ALTER TABLE todos ADD COLUMN start_date TEXT')
 
   const todoCols5 = cols(db, 'todos')
-  if (!todoCols5.includes('estimated_minutes')) db.exec('ALTER TABLE todos ADD COLUMN estimated_minutes INTEGER')
+  if (!todoCols5.includes('estimated_minutes'))  db.exec('ALTER TABLE todos ADD COLUMN estimated_minutes INTEGER')
+  if (!todoCols5.includes('linked_file_path'))   db.exec('ALTER TABLE todos ADD COLUMN linked_file_path TEXT')
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS task_files (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      todo_id    INTEGER NOT NULL REFERENCES todos(id) ON DELETE CASCADE,
+      file_path  TEXT    NOT NULL,
+      file_name  TEXT    NOT NULL,
+      created_at TEXT    NOT NULL DEFAULT (datetime('now'))
+    )
+  `)
 
   const projCols3 = cols(db, 'projects')
   if (!projCols3.includes('time_budget_hours')) db.exec('ALTER TABLE projects ADD COLUMN time_budget_hours REAL')

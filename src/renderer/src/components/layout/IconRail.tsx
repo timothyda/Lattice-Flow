@@ -9,11 +9,13 @@ interface Props {
   currentUser: User | null
   authUser: AuthUser | null
   showArchive: boolean
+  darkMode: boolean
   onViewChange: (v: MainView) => void
   onToggleArchive: () => void
   onLogin: () => void
   onLogout: () => void
   onOpenSettings: () => void
+  onToggleTheme: () => void
   onProfileUpdated: (user: User) => void
 }
 
@@ -31,7 +33,7 @@ function roleLabel(role: string): string {
     : role
 }
 
-function IconRail({ activeView, currentUser, authUser, showArchive, onViewChange, onToggleArchive, onLogin, onLogout, onOpenSettings, onProfileUpdated }: Props): JSX.Element {
+function IconRail({ activeView, currentUser, authUser, showArchive, darkMode, onViewChange, onToggleArchive, onLogin, onLogout, onOpenSettings, onToggleTheme, onProfileUpdated }: Props): JSX.Element {
   const [menuOpen, setMenuOpen] = useState(false)
   const [showProfile, setShowProfile] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -96,6 +98,14 @@ function IconRail({ activeView, currentUser, authUser, showArchive, onViewChange
       >
         <span className="ir-btn-icon">🗄</span>
         <span className="ir-btn-label">Archive</span>
+      </button>
+
+      <button
+        className="ir-theme-btn"
+        title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+        onClick={onToggleTheme}
+      >
+        {darkMode ? '☀' : '◑'}
       </button>
 
       <button

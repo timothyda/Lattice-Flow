@@ -56,6 +56,21 @@ function App(): JSX.Element {
   const [showArchive, setShowArchive] = useState(false)
   const [orgFeatures, setOrgFeatures] = useState<OrgFeatures | null>(null)
 
+  const [darkMode, setDarkMode] = useState(() => {
+    const saved = localStorage.getItem('theme') === 'dark'
+    document.documentElement.setAttribute('data-theme', saved ? 'dark' : 'light')
+    return saved
+  })
+
+  const toggleTheme = useCallback(() => {
+    setDarkMode((prev) => {
+      const next = !prev
+      document.documentElement.setAttribute('data-theme', next ? 'dark' : 'light')
+      localStorage.setItem('theme', next ? 'dark' : 'light')
+      return next
+    })
+  }, [])
+
   // ── Connection state ───────────────────────────────────────────────────────
 
   useEffect(() => {
@@ -235,15 +250,15 @@ function App(): JSX.Element {
 
   if (connState === 'unknown') {
     return (
-      <div className="app" style={{ alignItems: 'center', justifyContent: 'center', background: '#f5f6f8' }}>
-        <div style={{ color: '#676879', fontSize: 14 }}>Connecting…</div>
+      <div className="app" style={{ alignItems: 'center', justifyContent: 'center', background: 'var(--bg-page)' }}>
+        <div style={{ color: 'var(--text-2)', fontSize: 14 }}>Connecting…</div>
       </div>
     )
   }
 
   if (connState === 'no_server') {
     return (
-      <div className="app" style={{ background: '#f5f6f8' }}>
+      <div className="app" style={{ background: 'var(--bg-page)' }}>
         <ServerConnect onConnected={() => setConnState('connecting')} />
       </div>
     )
@@ -251,23 +266,23 @@ function App(): JSX.Element {
 
   if (connState === 'connecting') {
     return (
-      <div className="app" style={{ alignItems: 'center', justifyContent: 'center', background: '#f5f6f8' }}>
-        <div style={{ color: '#676879', fontSize: 14 }}>Connecting to server…</div>
+      <div className="app" style={{ alignItems: 'center', justifyContent: 'center', background: 'var(--bg-page)' }}>
+        <div style={{ color: 'var(--text-2)', fontSize: 14 }}>Connecting to server…</div>
       </div>
     )
   }
 
   if (orgLoading) {
     return (
-      <div className="app" style={{ alignItems: 'center', justifyContent: 'center', background: '#f5f6f8' }}>
-        <div style={{ color: '#676879', fontSize: 14 }}>Loading…</div>
+      <div className="app" style={{ alignItems: 'center', justifyContent: 'center', background: 'var(--bg-page)' }}>
+        <div style={{ color: 'var(--text-2)', fontSize: 14 }}>Loading…</div>
       </div>
     )
   }
 
   if (!org || showOrgSetup) {
     return (
-      <div className="app" style={{ background: '#f5f6f8' }}>
+      <div className="app" style={{ background: 'var(--bg-page)' }}>
         <OrgSetup onComplete={handleOrgSetupComplete} />
       </div>
     )
@@ -275,7 +290,7 @@ function App(): JSX.Element {
 
   if (!authUser) {
     return (
-      <div className="app" style={{ background: '#f5f6f8' }}>
+      <div className="app" style={{ background: 'var(--bg-page)' }}>
         <SignInView
           org={org}
           onSignedIn={handleSignedIn}
@@ -311,11 +326,13 @@ function App(): JSX.Element {
         currentUser={currentUser}
         authUser={authUser}
         showArchive={showArchive}
+        darkMode={darkMode}
         onViewChange={setMainView}
         onToggleArchive={() => setShowArchive((v) => !v)}
         onLogin={handleLogin}
         onLogout={handleLogout}
         onOpenSettings={() => setShowSettings(true)}
+        onToggleTheme={toggleTheme}
         onProfileUpdated={(u) => setCurrentUser(u)}
       />
 
@@ -392,6 +409,7 @@ function App(): JSX.Element {
             defaultTab={focusTodo ? 'time' : undefined}
             focusTodoId={focusTodo?.id ?? null}
             focusTodoTitle={focusTodo?.title ?? null}
+            currentUserId={currentUser?.id}
             onProjectUpdated={loadClients}
             onProjectDeleted={() => handleProjectDeleted(selectedProject.id)}
             onProjectArchived={() => handleArchiveProject(selectedProject.id)}

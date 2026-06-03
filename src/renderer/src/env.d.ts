@@ -9,7 +9,7 @@ import type {
   TaskAssignment,
   TimeSession, ManualSessionData,
   AppNotification,
-  RecentFile, FileEntry, CopyProgress,
+  RecentFile, FileEntry, CopyProgress, TaskFile,
   AuthUser,
   ArchivedItem,
   TaskTemplate, TaskTemplateSubtask, ProjectType,
@@ -123,6 +123,11 @@ declare global {
         markRead: (id: number) => Promise<void>
         markAllRead: (userId: number) => Promise<void>
       }
+      taskFiles: {
+        list:   (todoId: number) => Promise<TaskFile[]>
+        add:    (todoId: number, filePath: string, fileName: string) => Promise<TaskFile>
+        remove: (id: number) => Promise<{ ok: boolean }>
+      }
       recentFiles: {
         record: (userId: number, projectId: number, filePath: string, fileName: string) => Promise<void>
         list: (userId: number, limit?: number) => Promise<RecentFile[]>
@@ -181,6 +186,7 @@ declare global {
         listDir: (dirPath: string) => Promise<FileEntry[]>
         mkdir: (dirPath: string) => Promise<void>
         moveFile: (srcPath: string, destDir: string) => Promise<void>
+        openFile: (filePath: string) => Promise<string>
         readFile: (filePath: string) => Promise<string>
         copyFile: (srcPath: string, destPath: string, id: string) => Promise<void>
         onCopyProgress: (cb: (p: CopyProgress) => void) => () => void
@@ -191,6 +197,7 @@ declare global {
         basename: (p: string) => string
         sep: string
       }
+      getPathForFile: (file: File) => string
       dialog: {
         pickFolder: () => Promise<string | null>
         pickFiles: () => Promise<string[]>

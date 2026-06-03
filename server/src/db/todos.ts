@@ -18,7 +18,8 @@ function nextRecurrenceDate(freq: RecurrenceFrequency): string {
 }
 
 const TODO_SELECT = `
-  SELECT t.*, u.display_name as assigned_name, u.avatar_url as assigned_avatar_url, p.name as project_name
+  SELECT t.*, u.display_name as assigned_name, u.avatar_url as assigned_avatar_url, p.name as project_name,
+    (SELECT COUNT(*) FROM task_files WHERE todo_id = t.id) as file_count
   FROM todos t
   LEFT JOIN users u ON t.assigned_to = u.id
   LEFT JOIN projects p ON t.project_id = p.id
@@ -58,14 +59,14 @@ export function createTodo(data: NewTodo): Todo {
     ? (data.due_date ?? nextRecurrenceDate(recurrenceFreq))
     : null
   const { lastInsertRowid } = getDb().prepare(`
-    INSERT INTO todos (project_id, phase_id, assigned_to, title, description, priority, start_date, due_date, task_status, task_template_id, is_recurring, recurrence_frequency, recurrence_next_date, estimated_minutes, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO todos (project_id, phase_id, assigned_to, title, description, priority, start_date, due_date, task_status, task_template_id, is_recurring, recurrence_frequency, recurrence_next_date, estimated_minutes, linked_file_path, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     data.project_id, data.phase_id ?? null, data.assigned_to ?? null,
     data.title, data.description ?? '', data.priority ?? 'normal',
     data.start_date ?? null, data.due_date ?? null, status,
     data.task_template_id ?? null, isRecurring, recurrenceFreq, recurrenceNextDate,
-    data.estimated_minutes ?? null, now()
+    data.estimated_minutes ?? null, data.linked_file_path ?? null, now()
   )
   return getDb().prepare(`${TODO_SELECT} WHERE t.id = ?`).get(Number(lastInsertRowid)) as Todo
 }
@@ -90,6 +91,7 @@ export function updateTodo(id: number, data: UpdateTodo): Todo | undefined {
   if ('is_recurring' in data)         { fields.push('is_recurring = ?');         values.push(data.is_recurring ? 1 : 0) }
   if ('recurrence_frequency' in data) { fields.push('recurrence_frequency = ?'); values.push(data.recurrence_frequency ?? null) }
   if ('estimated_minutes' in data)    { fields.push('estimated_minutes = ?');    values.push(data.estimated_minutes ?? null) }
+  if ('linked_file_path' in data)     { fields.push('linked_file_path = ?');     values.push(data.linked_file_path ?? null) }
   values.push(id)
   getDb().prepare(`UPDATE todos SET ${fields.join(', ')} WHERE id = ?`).run(...values)
   return getDb().prepare(`${TODO_SELECT} WHERE t.id = ?`).get(id) as Todo | undefined

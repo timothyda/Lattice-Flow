@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import type { Todo, TaskStatus, TodoPriority, TimeSession, RecurrenceFrequency, User } from '../../../shared/types'
+import type { Todo, TaskStatus, TodoPriority, TimeSession, RecurrenceFrequency, User, TaskFile } from '../../../shared/types'
 import { RECURRENCE_LABELS } from '../../../shared/types'
 import TaskCommentModal from './TaskCommentModal'
 
@@ -29,9 +29,23 @@ interface Props {
   projectId: number
   phaseId?: number | null
   timeBudgets?: boolean
+  nasPath?: string
   onChanged?: () => void
   onOpenTask?: (todo: Todo) => void
   onTasksChanged?: (todos: Todo[]) => void
+}
+
+// Ensure a file lives inside the project folder; copy it there if not
+async function ensureInProject(filePath: string, nasPath: string, taskTitle: string): Promise<string> {
+  const norm = (p: string) => p.replace(/\\/g, '/').toLowerCase()
+  if (norm(filePath).startsWith(norm(nasPath) + '/')) return filePath
+  const safe = taskTitle.replace(/[<>:"/\\|?*]/g, '-').trim().slice(0, 50)
+  const destDir = window.api.path.join(nasPath, 'Tasks', safe)
+  await window.api.fs.mkdir(destDir)
+  const fileName = window.api.path.basename(filePath)
+  const destPath = window.api.path.join(destDir, fileName)
+  await window.api.fs.copyFile(filePath, destPath, crypto.randomUUID())
+  return destPath
 }
 
 const STATUS_ORDER: TaskStatus[] = [
@@ -80,7 +94,7 @@ function StatusBadge({ todo, onChange }: { todo: Todo; onChange: (s: TaskStatus)
       {open && (
         <div style={{
           position: 'absolute', top: '100%', left: 0, marginTop: 4,
-          background: '#fff', border: '1px solid #e6e9f0', borderRadius: 10,
+          background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10,
           boxShadow: '0 6px 24px rgba(0,0,0,0.13)', zIndex: 50,
           minWidth: 190, maxHeight: 280, overflowY: 'auto'
         }}>
@@ -95,7 +109,7 @@ function StatusBadge({ todo, onChange }: { todo: Todo; onChange: (s: TaskStatus)
                   display: 'flex', alignItems: 'center', gap: 8, width: '100%',
                   padding: '8px 12px', background: isActive ? `${c}12` : 'transparent',
                   border: 'none', cursor: 'pointer', textAlign: 'left', fontSize: 12,
-                  color: '#323338', borderLeft: isActive ? `3px solid ${c}` : '3px solid transparent'
+                  color: 'var(--text-1)', borderLeft: isActive ? `3px solid ${c}` : '3px solid transparent'
                 }}
               >
                 <span style={{ width: 9, height: 9, borderRadius: '50%', background: c, flexShrink: 0 }} />
@@ -115,12 +129,13 @@ interface NewTaskFormProps {
   projectId: number
   phaseId?: number | null
   timeBudgets?: boolean
+  nasPath?: string
   users: User[]
   onCreated: (todo: Todo) => void
   onCancel: () => void
 }
 
-function NewTaskForm({ projectId, phaseId, timeBudgets, users, onCreated, onCancel }: NewTaskFormProps): JSX.Element {
+function NewTaskForm({ projectId, phaseId, timeBudgets, nasPath, users, onCreated, onCancel }: NewTaskFormProps): JSX.Element {
   const [title,           setTitle]          = useState('')
   const [desc,            setDesc]           = useState('')
   const [status,          setStatus]         = useState<TaskStatus>('planning')
@@ -131,6 +146,7 @@ function NewTaskForm({ projectId, phaseId, timeBudgets, users, onCreated, onCanc
   const [estimatedHours,  setEstimatedHours] = useState('')
   const [isRecurring,     setIsRecurring]    = useState(false)
   const [recurrenceFreq,  setRecurrenceFreq] = useState<RecurrenceFrequency>('week')
+  const [pendingFiles,    setPendingFiles]   = useState<string[]>([])
   const [saving,          setSaving]         = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -155,7 +171,16 @@ function NewTaskForm({ projectId, phaseId, timeBudgets, users, onCreated, onCanc
         is_recurring:         isRecurring,
         recurrence_frequency: isRecurring ? recurrenceFreq : null,
         estimated_minutes:    parsedEst,
+        linked_file_path:     null,
       }) as Todo
+
+      // Attach files (copy to project folder first if needed)
+      for (const raw of pendingFiles) {
+        try {
+          const finalPath = nasPath ? await ensureInProject(raw, nasPath, t) : raw
+          await window.api.taskFiles.add(created.id, finalPath, window.api.path.basename(finalPath))
+        } catch (e) { console.warn('[NewTaskForm] file attach failed:', e) }
+      }
 
       // Apply routing if status has routing rules
       try {
@@ -177,7 +202,7 @@ function NewTaskForm({ projectId, phaseId, timeBudgets, users, onCreated, onCanc
 
   return (
     <div style={{
-      background: '#f9fafb', border: '1.5px solid #0073ea', borderRadius: 10,
+      background: 'var(--surface-sub)', border: '1.5px solid #0073ea', borderRadius: 10,
       padding: 14, marginBottom: 8, display: 'flex', flexDirection: 'column', gap: 10
     }}>
       <input
@@ -186,19 +211,19 @@ function NewTaskForm({ projectId, phaseId, timeBudgets, users, onCreated, onCanc
         onChange={(e) => setTitle(e.target.value)}
         onKeyDown={(e) => { if (e.key === 'Escape') onCancel() }}
         placeholder="Task title…"
-        style={{ border: '1.5px solid #c3c6d4', borderRadius: 6, padding: '7px 10px', fontSize: 13, outline: 'none', width: '100%', background: '#fff' }}
+        style={{ border: '1.5px solid var(--border-str)', borderRadius: 6, padding: '7px 10px', fontSize: 13, outline: 'none', width: '100%', background: 'var(--surface)' }}
       />
       <textarea
         value={desc}
         onChange={(e) => setDesc(e.target.value)}
         placeholder="Description (optional)…"
         rows={2}
-        style={{ border: '1.5px solid #c3c6d4', borderRadius: 6, padding: '7px 10px', fontSize: 12, outline: 'none', width: '100%', background: '#fff', resize: 'vertical', fontFamily: 'inherit' }}
+        style={{ border: '1.5px solid var(--border-str)', borderRadius: 6, padding: '7px 10px', fontSize: 12, outline: 'none', width: '100%', background: 'var(--surface)', resize: 'vertical', fontFamily: 'inherit' }}
       />
 
       {/* Status */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
-        <span style={{ fontSize: 11, fontWeight: 600, color: '#676879', width: 52 }}>Status</span>
+        <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-2)', width: 52 }}>Status</span>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
           {STATUS_ORDER.filter((s) => s !== 'complete' && s !== 'in_progress').map((s) => {
             const c = STATUS_COLORS[s]
@@ -226,11 +251,11 @@ function NewTaskForm({ projectId, phaseId, timeBudgets, users, onCreated, onCanc
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
         {users.length > 0 && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ fontSize: 11, fontWeight: 600, color: '#676879' }}>Assign</span>
+            <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-2)' }}>Assign</span>
             <select
               value={assignedTo ?? ''}
               onChange={(e) => setAssignedTo(e.target.value ? Number(e.target.value) : null)}
-              style={{ border: '1.5px solid #c3c6d4', borderRadius: 6, padding: '3px 6px', fontSize: 12, outline: 'none', background: '#fff', cursor: 'pointer' }}
+              style={{ border: '1.5px solid var(--border-str)', borderRadius: 6, padding: '3px 6px', fontSize: 12, outline: 'none', background: 'var(--surface)', cursor: 'pointer' }}
             >
               <option value="">Unassigned</option>
               {users.map((u) => <option key={u.id} value={u.id}>{u.display_name}</option>)}
@@ -238,13 +263,13 @@ function NewTaskForm({ projectId, phaseId, timeBudgets, users, onCreated, onCanc
           </div>
         )}
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span style={{ fontSize: 11, fontWeight: 600, color: '#676879' }}>Priority</span>
+          <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-2)' }}>Priority</span>
           <select
             value={priority}
             onChange={(e) => setPriority(e.target.value as TodoPriority)}
             style={{
-              border: '1.5px solid #c3c6d4', borderRadius: 6, padding: '3px 6px',
-              fontSize: 12, outline: 'none', background: '#fff', cursor: 'pointer'
+              border: '1.5px solid var(--border-str)', borderRadius: 6, padding: '3px 6px',
+              fontSize: 12, outline: 'none', background: 'var(--surface)', cursor: 'pointer'
             }}
           >
             {PRIORITY_OPTIONS.map((p) => (
@@ -254,34 +279,34 @@ function NewTaskForm({ projectId, phaseId, timeBudgets, users, onCreated, onCanc
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span style={{ fontSize: 11, fontWeight: 600, color: '#676879' }}>Start</span>
+          <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-2)' }}>Start</span>
           <input
             type="date"
             value={startDate}
             onChange={(e) => setStartDate(e.target.value)}
             style={{
-              border: '1.5px solid #c3c6d4', borderRadius: 6, padding: '3px 6px',
-              fontSize: 12, outline: 'none', background: '#fff'
+              border: '1.5px solid var(--border-str)', borderRadius: 6, padding: '3px 6px',
+              fontSize: 12, outline: 'none', background: 'var(--surface)'
             }}
           />
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span style={{ fontSize: 11, fontWeight: 600, color: '#676879' }}>Due</span>
+          <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-2)' }}>Due</span>
           <input
             type="date"
             value={dueDate}
             onChange={(e) => setDueDate(e.target.value)}
             style={{
-              border: '1.5px solid #c3c6d4', borderRadius: 6, padding: '3px 6px',
-              fontSize: 12, outline: 'none', background: '#fff'
+              border: '1.5px solid var(--border-str)', borderRadius: 6, padding: '3px 6px',
+              fontSize: 12, outline: 'none', background: 'var(--surface)'
             }}
           />
         </div>
 
         {timeBudgets && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ fontSize: 11, fontWeight: 600, color: '#676879' }}>Est. hrs</span>
+            <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-2)' }}>Est. hrs</span>
             <input
               type="number"
               min="0"
@@ -290,8 +315,8 @@ function NewTaskForm({ projectId, phaseId, timeBudgets, users, onCreated, onCanc
               onChange={(e) => setEstimatedHours(e.target.value)}
               placeholder="0"
               style={{
-                border: '1.5px solid #c3c6d4', borderRadius: 6, padding: '3px 6px',
-                fontSize: 12, outline: 'none', background: '#fff', width: 64
+                border: '1.5px solid var(--border-str)', borderRadius: 6, padding: '3px 6px',
+                fontSize: 12, outline: 'none', background: 'var(--surface)', width: 64
               }}
             />
           </div>
@@ -300,7 +325,7 @@ function NewTaskForm({ projectId, phaseId, timeBudgets, users, onCreated, onCanc
 
       {/* Recurring */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#676879', cursor: 'pointer' }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text-2)', cursor: 'pointer' }}>
           <input type="checkbox" checked={isRecurring} onChange={(e) => setIsRecurring(e.target.checked)} />
           Recurring
         </label>
@@ -308,7 +333,7 @@ function NewTaskForm({ projectId, phaseId, timeBudgets, users, onCreated, onCanc
           <select
             value={recurrenceFreq}
             onChange={(e) => setRecurrenceFreq(e.target.value as RecurrenceFrequency)}
-            style={{ border: '1.5px solid #c3c6d4', borderRadius: 6, padding: '3px 6px', fontSize: 12, outline: 'none', background: '#fff' }}
+            style={{ border: '1.5px solid var(--border-str)', borderRadius: 6, padding: '3px 6px', fontSize: 12, outline: 'none', background: 'var(--surface)' }}
           >
             {(Object.keys(RECURRENCE_LABELS) as RecurrenceFrequency[]).map((k) => (
               <option key={k} value={k}>{RECURRENCE_LABELS[k]}</option>
@@ -317,13 +342,36 @@ function NewTaskForm({ projectId, phaseId, timeBudgets, users, onCreated, onCanc
         )}
       </div>
 
+      {/* Attached files */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-2)', flexShrink: 0 }}>Files</span>
+          <button
+            onClick={async () => {
+              const paths = await window.api.dialog.pickFiles()
+              if (paths.length) setPendingFiles((prev) => [...prev, ...paths.filter((p) => !prev.includes(p))])
+            }}
+            style={{ fontSize: 11, border: '1px solid #c3c6d4', borderRadius: 4, background: 'var(--surface)', padding: '2px 8px', cursor: 'pointer', color: 'var(--text-2)' }}
+          >+ Attach file</button>
+        </div>
+        {pendingFiles.map((p) => (
+          <div key={p} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ fontSize: 11, color: 'var(--text-1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }} title={p}>
+              📎 {window.api.path.basename(p)}
+            </span>
+            <button onClick={() => setPendingFiles((prev) => prev.filter((x) => x !== p))}
+              style={{ fontSize: 11, background: 'none', border: 'none', color: '#e2445c', cursor: 'pointer', flexShrink: 0 }}>×</button>
+          </div>
+        ))}
+      </div>
+
       {/* Actions */}
       <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
         <button
           onClick={onCancel}
           style={{
-            padding: '5px 14px', border: '1.5px solid #c3c6d4', borderRadius: 6,
-            background: '#fff', fontSize: 12, cursor: 'pointer', color: '#676879'
+            padding: '5px 14px', border: '1.5px solid var(--border-str)', borderRadius: 6,
+            background: 'var(--surface)', fontSize: 12, cursor: 'pointer', color: 'var(--text-2)'
           }}
         >
           Cancel
@@ -346,7 +394,7 @@ function NewTaskForm({ projectId, phaseId, timeBudgets, users, onCreated, onCanc
 
 // ── Edit Task Modal ───────────────────────────────────────────────────────────
 
-function EditTaskModal({ todo, timeBudgets, users, onClose, onSaved }: { todo: Todo; timeBudgets?: boolean; users: User[]; onClose: () => void; onSaved: (updated: Todo) => void }): JSX.Element {
+function EditTaskModal({ todo, timeBudgets, nasPath, users, onClose, onSaved }: { todo: Todo; timeBudgets?: boolean; nasPath?: string; users: User[]; onClose: () => void; onSaved: (updated: Todo) => void }): JSX.Element {
   const [title,           setTitle]          = useState(todo.title)
   const [desc,            setDesc]           = useState(todo.description ?? '')
   const [priority,        setPriority]       = useState<TodoPriority>(todo.priority ?? 'normal')
@@ -356,7 +404,28 @@ function EditTaskModal({ todo, timeBudgets, users, onClose, onSaved }: { todo: T
   const [estimatedHours,  setEstimatedHours] = useState(todo.estimated_minutes != null ? String(todo.estimated_minutes / 60) : '')
   const [isRecurring,     setIsRecurring]    = useState(!!todo.is_recurring)
   const [recurrenceFreq,  setRecurrenceFreq] = useState<RecurrenceFrequency>(todo.recurrence_frequency ?? 'week')
+  const [taskFiles,       setTaskFiles]      = useState<TaskFile[]>([])
   const [saving,          setSaving]         = useState(false)
+
+  useEffect(() => {
+    window.api.taskFiles.list(todo.id).then((f) => setTaskFiles(f as TaskFile[]))
+  }, [todo.id])
+
+  const handleAddFile = async () => {
+    const paths = await window.api.dialog.pickFiles()
+    for (const raw of paths) {
+      try {
+        const finalPath = nasPath ? await ensureInProject(raw, nasPath, todo.title) : raw
+        const added = await window.api.taskFiles.add(todo.id, finalPath, window.api.path.basename(finalPath))
+        setTaskFiles((prev) => [...prev, added as TaskFile])
+      } catch (e) { console.warn('[EditTaskModal] file attach failed:', e) }
+    }
+  }
+
+  const handleRemoveFile = async (id: number) => {
+    await window.api.taskFiles.remove(id)
+    setTaskFiles((prev) => prev.filter((f) => f.id !== id))
+  }
 
   const handleSave = async () => {
     if (!title.trim()) return
@@ -432,7 +501,7 @@ function EditTaskModal({ todo, timeBudgets, users, onClose, onSaved }: { todo: T
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4 }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#323338', cursor: 'pointer' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--text-1)', cursor: 'pointer' }}>
             <input type="checkbox" checked={isRecurring} onChange={(e) => setIsRecurring(e.target.checked)} />
             Recurring task
           </label>
@@ -440,13 +509,41 @@ function EditTaskModal({ todo, timeBudgets, users, onClose, onSaved }: { todo: T
             <select
               value={recurrenceFreq}
               onChange={(e) => setRecurrenceFreq(e.target.value as RecurrenceFrequency)}
-              style={{ border: '1.5px solid #c3c6d4', borderRadius: 6, padding: '4px 8px', fontSize: 12 }}
+              style={{ border: '1.5px solid var(--border-str)', borderRadius: 6, padding: '4px 8px', fontSize: 12 }}
             >
               {(Object.keys(RECURRENCE_LABELS) as RecurrenceFrequency[]).map((k) => (
                 <option key={k} value={k}>{RECURRENCE_LABELS[k]}</option>
               ))}
             </select>
           )}
+        </div>
+
+        <div className="field" style={{ marginTop: 4 }}>
+          <label>Attached files <span className="field-optional">(optional)</span></label>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {taskFiles.map((f) => (
+              <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span
+                  style={{ fontSize: 13, color: '#0073ea', cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}
+                  title={f.file_path}
+                  onClick={() => {
+                    window.api.fs.openFile(f.file_path)
+                    window.api.recentFiles.record(0, todo.project_id, f.file_path, f.file_name).catch(() => {})
+                  }}
+                >
+                  📎 {f.file_name}
+                </span>
+                <button
+                  onClick={() => handleRemoveFile(f.id)}
+                  style={{ fontSize: 12, border: '1px solid #f5b0bc', borderRadius: 4, background: 'var(--surface)', padding: '2px 8px', cursor: 'pointer', color: '#e2445c', flexShrink: 0 }}
+                >Remove</button>
+              </div>
+            ))}
+            <button
+              onClick={handleAddFile}
+              style={{ alignSelf: 'flex-start', fontSize: 12, border: '1px solid #c3c6d4', borderRadius: 4, background: 'var(--surface)', padding: '3px 10px', cursor: 'pointer', color: 'var(--text-2)' }}
+            >+ Attach file</button>
+          </div>
         </div>
 
         <div className="modal-actions">
@@ -477,12 +574,17 @@ function fmtDateTime(utc: string): string {
 
 function TaskDetailModal({ todo, onClose }: { todo: Todo; onClose: () => void }): JSX.Element {
   const [sessions, setSessions] = useState<TimeSession[]>([])
+  const [taskFiles, setTaskFiles] = useState<TaskFile[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    window.api.time.getSessionsByTodo(todo.id)
-      .then((data) => setSessions(data as TimeSession[]))
-      .finally(() => setLoading(false))
+    Promise.all([
+      window.api.time.getSessionsByTodo(todo.id),
+      window.api.taskFiles.list(todo.id),
+    ]).then(([s, f]) => {
+      setSessions(s as TimeSession[])
+      setTaskFiles(f as TaskFile[])
+    }).finally(() => setLoading(false))
   }, [todo.id])
 
   // Only count sessions that have been fully clocked out
@@ -505,28 +607,49 @@ function TaskDetailModal({ todo, onClose }: { todo: Todo; onClose: () => void })
               color, background: `${color}18`, border: `1px solid ${color}44`
             }}>{label}</span>
           </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#9699a6', flexShrink: 0 }}>×</button>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: 'var(--text-3)', flexShrink: 0 }}>×</button>
         </div>
 
         {/* Task meta */}
-        <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: 12, color: '#676879' }}>
-          {todo.priority && <span>Priority: <strong style={{ color: '#323338' }}>{todo.priority}</strong></span>}
-          {todo.due_date && <span>Due: <strong style={{ color: '#323338' }}>{new Date(todo.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</strong></span>}
-          {todo.completed_at && <span>Completed: <strong style={{ color: '#323338' }}>{new Date(todo.completed_at.replace(' ', 'T') + 'Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</strong></span>}
+        <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: 12, color: 'var(--text-2)' }}>
+          {todo.priority && <span>Priority: <strong style={{ color: 'var(--text-1)' }}>{todo.priority}</strong></span>}
+          {todo.due_date && <span>Due: <strong style={{ color: 'var(--text-1)' }}>{new Date(todo.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</strong></span>}
+          {todo.completed_at && <span>Completed: <strong style={{ color: 'var(--text-1)' }}>{new Date(todo.completed_at.replace(' ', 'T') + 'Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</strong></span>}
         </div>
 
         {/* Description */}
         {todo.description && (
-          <div style={{ background: '#f9fafb', borderRadius: 8, padding: '10px 13px', fontSize: 13, color: '#676879', whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>
+          <div style={{ background: 'var(--surface-sub)', borderRadius: 8, padding: '10px 13px', fontSize: 13, color: 'var(--text-2)', whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>
             {todo.description}
           </div>
         )}
 
+        {/* Attached files */}
+        {taskFiles.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Attached files</div>
+            {taskFiles.map((f) => (
+              <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', background: '#f0f6ff', borderRadius: 6, border: '1px solid #cce0ff' }}>
+                <span
+                  style={{ fontSize: 13, color: '#0073ea', cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}
+                  title={f.file_path}
+                  onClick={() => {
+                    window.api.fs.openFile(f.file_path)
+                    window.api.recentFiles.record(0, todo.project_id, f.file_path, f.file_name).catch(() => {})
+                  }}
+                >
+                  📎 {f.file_name}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* Time summary */}
-        <div style={{ background: '#f0f7ff', borderRadius: 10, padding: '14px 16px' }}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: '#676879', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>Time Logged</div>
+        <div style={{ background: 'var(--accent-bg)', borderRadius: 10, padding: '14px 16px' }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>Time Logged</div>
           <div style={{ fontSize: 28, fontWeight: 700, color: '#0073ea', lineHeight: 1 }}>{fmtDuration(totalMins)}</div>
-          <div style={{ fontSize: 11, color: '#9699a6', marginTop: 4 }}>
+          <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 4 }}>
             {completedSessions.length} completed session{completedSessions.length !== 1 ? 's' : ''}
             {sessions.length > completedSessions.length && (
               <span style={{ marginLeft: 6, color: '#ff7b00' }}>· {sessions.length - completedSessions.length} active</span>
@@ -536,29 +659,29 @@ function TaskDetailModal({ todo, onClose }: { todo: Todo; onClose: () => void })
 
         {/* Session list */}
         <div>
-          <div style={{ fontSize: 12, fontWeight: 700, color: '#323338', marginBottom: 8 }}>Sessions</div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-1)', marginBottom: 8 }}>Sessions</div>
           {loading ? (
-            <div style={{ fontSize: 13, color: '#9699a6' }}>Loading…</div>
+            <div style={{ fontSize: 13, color: 'var(--text-3)' }}>Loading…</div>
           ) : completedSessions.length === 0 ? (
-            <div style={{ fontSize: 13, color: '#9699a6' }}>No completed time sessions yet. Clock in via the task's ⏱ button to log time.</div>
+            <div style={{ fontSize: 13, color: 'var(--text-3)' }}>No completed time sessions yet. Clock in via the task's ⏱ button to log time.</div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {completedSessions.map((s) => (
                 <div key={s.id} style={{
                   display: 'flex', alignItems: 'center', gap: 10,
-                  padding: '8px 12px', background: '#f9fafb',
-                  borderRadius: 8, border: '1px solid #e6e9f0', fontSize: 12
+                  padding: '8px 12px', background: 'var(--surface-sub)',
+                  borderRadius: 8, border: '1px solid var(--border)', fontSize: 12
                 }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ color: '#323338', fontWeight: 500 }}>{s.user_name}</div>
-                    <div style={{ color: '#9699a6', marginTop: 2 }}>
+                    <div style={{ color: 'var(--text-1)', fontWeight: 500 }}>{s.user_name}</div>
+                    <div style={{ color: 'var(--text-3)', marginTop: 2 }}>
                       {fmtDateTime(s.started_at)}
                       {s.ended_at ? ` → ${fmtDateTime(s.ended_at)}` : ' (active)'}
                     </div>
                     {s.subtask_title && (
                       <div style={{ fontSize: 11, color: '#0073ea', marginTop: 2, fontWeight: 500 }}>{s.subtask_title}</div>
                     )}
-                    {s.note && <div style={{ color: '#676879', marginTop: 2, fontStyle: 'italic' }}>{s.note}</div>}
+                    {s.note && <div style={{ color: 'var(--text-2)', marginTop: 2, fontStyle: 'italic' }}>{s.note}</div>}
                   </div>
                   <div style={{ fontWeight: 700, color: '#0073ea', flexShrink: 0, fontSize: 13 }}>
                     {fmtDuration(s.duration_minutes)}
@@ -579,7 +702,7 @@ function TaskDetailModal({ todo, onClose }: { todo: Todo; onClose: () => void })
 
 // ── Main TodoList ─────────────────────────────────────────────────────────────
 
-export default function TodoList({ projectId, phaseId, timeBudgets, onChanged, onOpenTask, onTasksChanged }: Props): JSX.Element {
+export default function TodoList({ projectId, phaseId, timeBudgets, nasPath, onChanged, onOpenTask, onTasksChanged }: Props): JSX.Element {
   const [todos,        setTodos]       = useState<Todo[]>([])
   const [adding,       setAdding]      = useState(false)
   const [detailTodo,   setDetailTodo]  = useState<Todo | null>(null)
@@ -640,6 +763,7 @@ export default function TodoList({ projectId, phaseId, timeBudgets, onChanged, o
       <EditTaskModal
         todo={editTodo}
         timeBudgets={timeBudgets}
+        nasPath={nasPath}
         users={orgUsers}
         onClose={() => setEditTodo(null)}
         onSaved={(updated) => {
@@ -676,6 +800,7 @@ export default function TodoList({ projectId, phaseId, timeBudgets, onChanged, o
           projectId={projectId}
           phaseId={phaseId}
           timeBudgets={timeBudgets}
+          nasPath={nasPath}
           users={orgUsers}
           onCreated={handleCreated}
           onCancel={() => setAdding(false)}
@@ -703,21 +828,33 @@ export default function TodoList({ projectId, phaseId, timeBudgets, onChanged, o
                   background: 'none', border: 'none',
                   cursor: onOpenTask ? 'pointer' : 'default',
                   textAlign: 'left', padding: 0, flex: 1,
-                  fontSize: 13, color: '#323338'
+                  fontSize: 13, color: 'var(--text-1)', display: 'flex',
+                  flexDirection: 'column', gap: 2, minWidth: 0
                 }}
               >
-                {t.title}
-                {!!t.is_recurring && (
-                  <span style={{ marginLeft: 6, fontSize: 9, color: '#0073ea', background: '#e6f2ff', borderRadius: 6, padding: '1px 5px', fontWeight: 600 }}>
-                    ↻
-                  </span>
-                )}
-                {t.due_date && (
-                  <span style={{
-                    marginLeft: 8, fontSize: 10,
-                    color: new Date(t.due_date) < new Date() ? '#e2445c' : '#9699a6'
-                  }}>
-                    Due {new Date(t.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                <span style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
+                  <span>{t.title}</span>
+                  {!!t.is_recurring && (
+                    <span style={{ fontSize: 9, color: '#0073ea', background: '#e6f2ff', borderRadius: 6, padding: '1px 5px', fontWeight: 600 }}>↻</span>
+                  )}
+                  {t.due_date && (
+                    <span style={{ fontSize: 10, color: new Date(t.due_date) < new Date() ? '#e2445c' : 'var(--text-3)' }}>
+                      Due {new Date(t.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    </span>
+                  )}
+                </span>
+                {(t.description || t.file_count > 0) && (
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    {t.description && (
+                      <span style={{ fontSize: 11, color: 'var(--text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 260 }}>
+                        {t.description.length > 80 ? t.description.slice(0, 80) + '…' : t.description}
+                      </span>
+                    )}
+                    {t.file_count > 0 && (
+                      <span style={{ fontSize: 10, color: 'var(--text-2)', background: 'var(--surface-rsd)', borderRadius: 4, padding: '1px 5px', flexShrink: 0 }}>
+                        📎 {t.file_count}
+                      </span>
+                    )}
                   </span>
                 )}
               </button>
@@ -775,14 +912,14 @@ export default function TodoList({ projectId, phaseId, timeBudgets, onChanged, o
             marginBottom: 8
           }}>
             <span style={{
-              fontSize: 11, fontWeight: 700, color: '#676879',
+              fontSize: 11, fontWeight: 700, color: 'var(--text-2)',
               textTransform: 'uppercase', letterSpacing: '0.06em'
             }}>
               Completed ({done.length})
             </span>
           </div>
 
-          <div style={{ border: '1px solid #e6e9f0', borderRadius: 10, background: '#fafafa' }}>
+          <div style={{ border: '1px solid var(--border)', borderRadius: 10, background: '#fafafa' }}>
             <ul className="todo-items" style={{ padding: '4px 0', margin: 0 }}>
               {done.map((t) => (
                 <li key={t.id} className="todo-item todo-item-done" style={{ alignItems: 'center', gap: 6, padding: '6px 12px' }}>
@@ -793,7 +930,7 @@ export default function TodoList({ projectId, phaseId, timeBudgets, onChanged, o
                     style={{
                       flex: 1, background: 'none', border: 'none', textAlign: 'left',
                       padding: 0, cursor: 'pointer', fontSize: 13,
-                      color: '#9699a6', textDecoration: 'line-through'
+                      color: 'var(--text-3)', textDecoration: 'line-through'
                     }}
                   >
                     {t.title}

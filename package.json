@@ -11,7 +11,7 @@
     "postinstall": "electron-rebuild"
   },
   "dependencies": {
-    "@azure/msal-node": "^2.16.0",
+    "@azure/msal-node": "^5.2.2",
     "@types/nodemailer": "^8.0.0",
     "bcryptjs": "^3.0.3",
     "better-sqlite3": "^12.9.0",
@@ -24,7 +24,7 @@
     "ws": "^8.20.0"
   },
   "devDependencies": {
-    "@electron/rebuild": "^3.7.2",
+    "@electron/rebuild": "^0.0.0",
     "@types/bcryptjs": "^2.4.6",
     "@types/better-sqlite3": "^7.6.11",
     "@types/node": "^22.0.0",
@@ -32,10 +32,10 @@
     "@types/react-dom": "^18.3.1",
     "@types/ws": "^8.18.1",
     "@vitejs/plugin-react": "^4.3.1",
-    "electron": "^33.0.0",
-    "electron-builder": "^25.1.7",
-    "electron-vite": "^2.3.0",
+    "electron": "^41.7.1",
+    "electron-builder": "^26.8.1",
+    "electron-vite": "^5.0.0",
     "typescript": "^5.6.3",
-    "vite": "^5.4.10"
+    "vite": "^8.0.16"
   }
 }

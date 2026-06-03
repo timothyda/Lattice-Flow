@@ -37,6 +37,8 @@ function fmtSize(bytes: number): string {
 
 interface Props {
   nasPath: string
+  projectId: number
+  currentUserId: number
 }
 
 const FB_WIDTH_KEY = 'pm-filebrowser-width'
@@ -45,7 +47,7 @@ const FB_MIN = 180
 const FB_MAX = 600
 const FB_COLLAPSED_W = 28
 
-export default function FileBrowser({ nasPath }: Props): JSX.Element {
+export default function FileBrowser({ nasPath, projectId, currentUserId }: Props): JSX.Element {
   const [currentPath, setCurrentPath] = useState(nasPath)
   const [entries, setEntries] = useState<FileEntry[]>([])
   const [loading, setLoading] = useState(false)
@@ -55,6 +57,7 @@ export default function FileBrowser({ nasPath }: Props): JSX.Element {
   const [creatingFolder, setCreatingFolder] = useState(false)
   const [newFolderName, setNewFolderName] = useState('')
   const [cutEntry, setCutEntry] = useState<{ name: string; fullPath: string } | null>(null)
+  const [dragOver, setDragOver] = useState(false)
   const newFolderRef = useRef<HTMLInputElement>(null)
 
   // ── Resize & collapse ───────────────────────────────────────────────────────
@@ -192,6 +195,38 @@ export default function FileBrowser({ nasPath }: Props): JSX.Element {
     setNewFolderName('')
     await window.api.fs.mkdir(window.api.path.join(currentPath, name))
     loadDir(currentPath)
+  }
+
+  const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    setDragOver(false)
+    const files = Array.from(e.dataTransfer.files)
+    if (!files.length) return
+    const capturedPath = currentPath
+    const jobs: CopyJob[] = files.map((file) => ({
+      id: crypto.randomUUID(),
+      name: file.name,
+      srcPath: window.api.getPathForFile(file),
+      loaded: 0, total: 0, done: false
+    }))
+    setCopyJobs((prev) => [...prev, ...jobs])
+    await Promise.all(jobs.map(async (job) => {
+      const dest = window.api.path.join(capturedPath, job.name)
+      try {
+        await window.api.fs.copyFile(job.srcPath, dest, job.id)
+        setCopyJobs((prev) => prev.map((j) => j.id === job.id ? { ...j, done: true } : j))
+      } catch {
+        setCopyJobs((prev) => prev.map((j) => j.id === job.id ? { ...j, done: true, error: 'Copy failed' } : j))
+      }
+    }))
+    await loadDir(currentPath)
+    setTimeout(() => setCopyJobs((prev) => prev.filter((j) => !j.done)), 2500)
+  }
+
+  const handleOpen = async (entry: FileEntry) => {
+    const fullPath = window.api.path.join(currentPath, entry.name)
+    await window.api.fs.openFile(fullPath)
+    window.api.recentFiles.record(currentUserId, projectId, fullPath, entry.name).catch(() => {})
   }
 
   const handleCut = (entry: FileEntry) => {
@@ -344,7 +379,12 @@ export default function FileBrowser({ nasPath }: Props): JSX.Element {
       )}
 
       {/* File list */}
-      <div className="fb-list-wrap">
+      <div
+        className={`fb-list-wrap${dragOver ? ' fb-drag-over' : ''}`}
+        onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={handleDrop}
+      >
         {loading && (
           <ul className="fb-list">
             {Array.from({ length: 6 }).map((_, i) => (
@@ -372,13 +412,22 @@ export default function FileBrowser({ nasPath }: Props): JSX.Element {
                   {entry.type === 'file' ? fmtSize(entry.size) : ''}
                 </span>
                 {entry.type === 'file' && (
-                  <button
-                    className="fb-move-btn"
-                    onClick={() => handleCut(entry)}
-                    title="Move to another folder"
-                  >
-                    Move
-                  </button>
+                  <>
+                    <button
+                      className="fb-open-btn"
+                      onClick={() => handleOpen(entry)}
+                      title="Open in default application"
+                    >
+                      Open
+                    </button>
+                    <button
+                      className="fb-move-btn"
+                      onClick={() => handleCut(entry)}
+                      title="Move to another folder"
+                    >
+                      Move
+                    </button>
+                  </>
                 )}
               </li>
             ))}

@@ -15,12 +15,13 @@ interface Props {
   defaultTab?: MainTab
   focusTodoId?: number | null
   focusTodoTitle?: string | null
+  currentUserId?: number
   onProjectUpdated: () => void
   onProjectDeleted?: () => void
   onProjectArchived?: () => void
 }
 
-function ProjectView({ project, orgFeatures, defaultTab, focusTodoId, focusTodoTitle, onProjectUpdated, onProjectDeleted, onProjectArchived }: Props): JSX.Element {
+function ProjectView({ project, orgFeatures, defaultTab, focusTodoId, focusTodoTitle, currentUserId, onProjectUpdated, onProjectDeleted, onProjectArchived }: Props): JSX.Element {
   const [activeTab, setActiveTab] = useState<MainTab>(defaultTab ?? 'overview')
   const [activeTodo, setActiveTodo] = useState<{ id: number; title: string } | null>(
     focusTodoId ? { id: focusTodoId, title: focusTodoTitle ?? '' } : null
@@ -247,6 +248,7 @@ function ProjectView({ project, orgFeatures, defaultTab, focusTodoId, focusTodoT
               <TodoList
                 projectId={project.id}
                 timeBudgets={!!orgFeatures?.time_budgets}
+                nasPath={project.nas_path ?? undefined}
                 onChanged={handleTaskChanged}
                 onTasksChanged={setTasks}
                 onOpenTask={handleOpenTask}
@@ -254,7 +256,7 @@ function ProjectView({ project, orgFeatures, defaultTab, focusTodoId, focusTodoT
             </div>
           </div>
 
-          <FileBrowser nasPath={project.nas_path} />
+          <FileBrowser nasPath={project.nas_path} projectId={project.id} currentUserId={currentUserId ?? 0} />
         </div>
       )}
 

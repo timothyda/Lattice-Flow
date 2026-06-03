@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import type { TimeSession, User, TaskStatus } from '../../../shared/types'
+import type { TimeSession, User, TaskStatus, TaskFile } from '../../../shared/types'
 import ActiveTimer from './time/ActiveTimer'
 import HoursChart from './time/HoursChart'
 import TimeStats from './time/TimeStats'
@@ -24,6 +24,7 @@ export default function TimeTab({ projectId, focusTodoId, focusTodoTitle, showOv
   const [exportMsg, setExportMsg] = useState<string | null>(null)
   // Pause state: stores the todo context when a session is paused so Resume can re-clock in
   const [pausedTodo, setPausedTodo] = useState<{ id: number | null; title: string | null } | null>(null)
+  const [focusFiles, setFocusFiles] = useState<TaskFile[]>([])
 
   const refresh = useCallback(async () => {
     const [sess, active] = await Promise.all([
@@ -56,6 +57,12 @@ export default function TimeTab({ projectId, focusTodoId, focusTodoTitle, showOv
     }, 10_000)
     return () => clearInterval(id)
   }, [projectId])
+
+  useEffect(() => {
+    const todoId = focusTodoId ?? null
+    if (!todoId) { setFocusFiles([]); return }
+    window.api.taskFiles.list(todoId).then((f) => setFocusFiles(f as TaskFile[]))
+  }, [focusTodoId])
 
   const handleClockIn = useCallback(async (todoId?: number | null) => {
     if (!currentUser) return
@@ -170,6 +177,25 @@ export default function TimeTab({ projectId, focusTodoId, focusTodoTitle, showOv
           </div>
         )
       })()}
+
+      {focusFiles.length > 0 && (
+        <div style={{ padding: '10px 14px', background: '#f0f6ff', border: '1px solid #cce0ff', borderRadius: 8, marginBottom: 12, display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: '#676879', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Attached files</div>
+          {focusFiles.map((f) => (
+            <span
+              key={f.id}
+              style={{ fontSize: 13, color: '#0073ea', cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+              title={f.file_path}
+              onClick={() => {
+                window.api.fs.openFile(f.file_path)
+                window.api.recentFiles.record(0, projectId, f.file_path, f.file_name).catch(() => {})
+              }}
+            >
+              📎 {f.file_name}
+            </span>
+          ))}
+        </div>
+      )}
 
       <ActiveTimer
         currentUser={currentUser}

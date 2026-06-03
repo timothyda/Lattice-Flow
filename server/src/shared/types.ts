@@ -263,6 +263,8 @@ export interface Todo {
   recurrence_frequency: RecurrenceFrequency | null
   recurrence_next_date: string | null
   estimated_minutes: number | null
+  linked_file_path: string | null
+  file_count: number
   assigned_avatar_url: string | null
   updated_at: string
   created_at: string
@@ -282,12 +284,24 @@ export type NewTodo = {
   is_recurring?: boolean
   recurrence_frequency?: RecurrenceFrequency | null
   estimated_minutes?: number | null
+  linked_file_path?: string | null
 }
 
 export type UpdateTodo = Partial<Pick<Todo, 'title' | 'description' | 'priority' | 'start_date' | 'due_date' | 'assigned_to' | 'phase_id'>> & {
   is_recurring?: boolean
   recurrence_frequency?: RecurrenceFrequency | null
   estimated_minutes?: number | null
+  linked_file_path?: string | null
+}
+
+// ── Task Files ────────────────────────────────────────────────────────────────
+
+export interface TaskFile {
+  id: number
+  todo_id: number
+  file_path: string
+  file_name: string
+  created_at: string
 }
 
 // ── Task Assignments ──────────────────────────────────────────────────────────

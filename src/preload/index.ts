@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import * as nodePath from 'path'
 import type {
   NewOrganization,
@@ -154,6 +154,11 @@ contextBridge.exposeInMainWorld('api', {
     markAllRead: (userId: number): Promise<void> =>
       ipcRenderer.invoke('notifications:mark-all-read', userId)
   },
+  taskFiles: {
+    list:   (todoId: number): Promise<unknown[]> => ipcRenderer.invoke('task-files:list', todoId),
+    add:    (todoId: number, filePath: string, fileName: string): Promise<unknown> => ipcRenderer.invoke('task-files:add', todoId, filePath, fileName),
+    remove: (id: number): Promise<{ ok: boolean }> => ipcRenderer.invoke('task-files:remove', id),
+  },
   recentFiles: {
     record: (userId: number, projectId: number, filePath: string, fileName: string): Promise<void> =>
       ipcRenderer.invoke('recent-files:record', userId, projectId, filePath, fileName),
@@ -231,6 +236,7 @@ contextBridge.exposeInMainWorld('api', {
     listDir: (dirPath: string): Promise<unknown> => ipcRenderer.invoke('fs:list-dir', dirPath),
     mkdir: (dirPath: string): Promise<void> => ipcRenderer.invoke('fs:mkdir', dirPath),
     moveFile: (srcPath: string, destDir: string): Promise<void> => ipcRenderer.invoke('fs:move-file', srcPath, destDir),
+    openFile: (filePath: string): Promise<string> => ipcRenderer.invoke('fs:open-file', filePath),
     readFile: (filePath: string): Promise<string> => ipcRenderer.invoke('fs:read-file', filePath),
     copyFile: (srcPath: string, destPath: string, id: string): Promise<void> =>
       ipcRenderer.invoke('fs:copy-file', { srcPath, destPath, id }),
@@ -247,6 +253,7 @@ contextBridge.exposeInMainWorld('api', {
     basename: (p: string): string => nodePath.basename(p),
     sep: nodePath.sep
   },
+  getPathForFile: (file: File): string => webUtils.getPathForFile(file),
   recorder: {
     getSources: (): Promise<{ id: string; name: string; thumbnail: string }[]> =>
       ipcRenderer.invoke('recorder:get-sources'),

@@ -1,4 +1,4 @@
-import { ipcMain, dialog, app } from 'electron'
+import { ipcMain, dialog, app, shell } from 'electron'
 import { writeFile, copyFile, mkdir } from 'fs/promises'
 import { extname, join } from 'path'
 import { apiClient, ping, downloadText } from './api-client'
@@ -215,6 +215,12 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('notifications:mark-read', (_e, id: number) => apiClient.patch(`/notifications/${id}/read`))
   ipcMain.handle('notifications:mark-all-read', () => apiClient.patch('/notifications/read-all'))
 
+  // ── Task files ─────────────────────────────────────────────────────────────
+  ipcMain.handle('task-files:list',   (_e, todoId: number) => apiClient.get(`/task-files?todoId=${todoId}`))
+  ipcMain.handle('task-files:add',    (_e, todoId: number, filePath: string, fileName: string) =>
+    apiClient.post('/task-files', { todoId, filePath, fileName }))
+  ipcMain.handle('task-files:remove', (_e, id: number) => apiClient.delete(`/task-files/${id}`))
+
   // ── Recent files ───────────────────────────────────────────────────────────
   ipcMain.handle('recent-files:record', (_e, _userId: number, projectId: number, filePath: string, fileName: string) =>
     apiClient.post('/recent-files', { projectId, filePath, fileName }))
@@ -325,6 +331,7 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('fs:list-dir', (_e, dirPath: string) => listDirectory(dirPath))
   ipcMain.handle('fs:mkdir', (_e, dirPath: string) => makeDirectory(dirPath))
   ipcMain.handle('fs:move-file', (_e, srcPath: string, destDir: string) => moveFile(srcPath, destDir))
+  ipcMain.handle('fs:open-file', (_e, filePath: string) => shell.openPath(filePath))
   ipcMain.handle('fs:read-file', (_e, filePath: string) => {
     const { readFile } = require('fs/promises') as typeof import('fs/promises')
     return readFile(filePath, 'utf8')

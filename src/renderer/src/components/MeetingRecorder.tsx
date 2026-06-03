@@ -104,7 +104,7 @@ export default function MeetingRecorder({ meeting, nasPath, onRecordingPathSaved
         </p>
         <div className="recorder-setup-items">
           <div className={`recorder-setup-item${setupInfo.cliExists ? ' ok' : ''}`}>
-            <span>{setupInfo.cliExists ? '✓' : '○'} Whisper CLI (main.exe)</span>
+            <span>{setupInfo.cliExists ? '✓' : '○'} Whisper CLI (main.exe or whisper-cli.exe)</span>
             {!setupInfo.cliExists && (
               <button className="recorder-setup-btn" onClick={handleImportCli}>Import…</button>
             )}

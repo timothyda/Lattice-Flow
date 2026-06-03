@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import { authMiddleware } from '../middleware/auth'
-import { listUsers, getUserById, createUser, updateUser, deleteUser } from '../db/users'
+import { listUsers, getUserById, createUser, updateUser, deleteUser, generateInviteToken } from '../db/users'
 
 const router = Router()
 router.use(authMiddleware)
@@ -22,7 +22,9 @@ router.get('/:id', (req, res) => {
 })
 
 router.post('/', (req, res) => {
-  res.json(createUser({ ...req.body, organization_id: req.user!.orgId }))
+  const user = createUser({ ...req.body, organization_id: req.user!.orgId })
+  const inviteToken = generateInviteToken(user.id)
+  res.json({ ...user, inviteToken })
 })
 
 router.patch('/:id', (req, res) => {

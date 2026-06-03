@@ -1,7 +1,7 @@
 import { app, desktopCapturer, dialog, shell } from 'electron'
 import { copyFile, mkdir, writeFile, readdir } from 'fs/promises'
 import { existsSync } from 'fs'
-import { join } from 'path'
+import { join, dirname } from 'path'
 
 export interface ScreenSource {
   id: string
@@ -66,7 +66,7 @@ export async function importModelFile(): Promise<boolean> {
 
 export async function importWhisperCli(): Promise<boolean> {
   const { canceled, filePaths } = await dialog.showOpenDialog({
-    title: 'Select whisper CLI executable (main.exe or whisper-cli.exe)',
+    title: 'Select whisper.cpp CLI executable (main.exe or whisper-cli.exe — not Whisper Desktop)',
     filters: [{ name: 'Executable', extensions: ['exe'] }],
     properties: ['openFile']
   })
