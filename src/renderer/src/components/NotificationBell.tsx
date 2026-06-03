@@ -56,7 +56,7 @@ export default function NotificationBell({ currentUser }: Props): JSX.Element | 
     if (!open && currentUser && unreadCount > 0) {
       await window.api.notifications.markAllRead(currentUser.id)
       setUnreadCount(0)
-      setNotifications((prev) => prev.map((n) => ({ ...n, read: 1 })))
+      setNotifications([])
     }
   }
 
@@ -134,7 +134,7 @@ export default function NotificationBell({ currentUser }: Props): JSX.Element | 
                   if (!currentUser) return
                   await window.api.notifications.markAllRead(currentUser.id)
                   setUnreadCount(0)
-                  setNotifications((prev) => prev.map((n) => ({ ...n, read: 1 })))
+                  setNotifications([])
                 }}
                 style={{ background: 'none', border: 'none', fontSize: 11, color: '#0073ea', cursor: 'pointer' }}
               >

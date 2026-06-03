@@ -48,7 +48,7 @@ export function notifyRoles(data: {
 }
 
 export function listNotifications(userId: number, limit = 30): AppNotification[] {
-  return getDb().prepare(`${SELECT} WHERE n.user_id = ? ORDER BY n.created_at DESC LIMIT ?`)
+  return getDb().prepare(`${SELECT} WHERE n.user_id = ? AND n.read = 0 ORDER BY n.created_at DESC LIMIT ?`)
     .all(userId, limit) as AppNotification[]
 }
 
