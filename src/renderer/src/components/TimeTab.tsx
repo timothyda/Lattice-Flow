@@ -96,19 +96,20 @@ export default function TimeTab({ projectId, focusTodoId, focusTodoTitle, showOv
       setFocusTodo(null)
       return
     }
-    Promise.all([
-      window.api.taskFiles.list(todoId),
-      window.api.todos.get(todoId)
-    ]).then(([files, todo]) => {
-      setFocusFiles(files as TaskFile[])
-      if (todo) {
-        const t = todo as Todo
-        setFocusTodo(t)
-        setEditDesc(t.description ?? '')
-        setEditStatus(t.task_status ?? 'planning')
-        setEditPriority(t.priority ?? 'normal')
-      }
-    })
+    // Load independently so a failure in one doesn't block the other
+    window.api.taskFiles.list(todoId)
+      .then((f) => setFocusFiles(f as TaskFile[]))
+      .catch(() => {})
+    window.api.todos.get(todoId)
+      .then((t) => {
+        if (!t) return
+        const todo = t as Todo
+        setFocusTodo(todo)
+        setEditDesc(todo.description ?? '')
+        setEditStatus(todo.task_status ?? 'planning')
+        setEditPriority(todo.priority ?? 'normal')
+      })
+      .catch(() => {})
   }, [focusTodoId])
 
   const handleAddFile = useCallback(async () => {
@@ -253,9 +254,9 @@ export default function TimeTab({ projectId, focusTodoId, focusTodoTitle, showOv
 
       {/* Task card — shown when focused on a specific task */}
       {focusTodoId && (
-        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, marginBottom: 12, overflow: 'hidden' }}>
+        <div style={{ background: 'var(--accent-bg)', border: '1px solid color-mix(in srgb, var(--accent) 30%, transparent)', borderRadius: 10, marginBottom: 12, overflow: 'hidden' }}>
           {/* Header */}
-          <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+          <div style={{ padding: '12px 16px', borderBottom: '1px solid color-mix(in srgb, var(--accent) 20%, transparent)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
               <span style={{
                 fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 8, flexShrink: 0,
@@ -282,7 +283,7 @@ export default function TimeTab({ projectId, focusTodoId, focusTodoTitle, showOv
 
           {/* Description */}
           {focusTodo?.description && (
-            <div style={{ padding: '10px 16px', fontSize: 13, color: 'var(--text-2)', lineHeight: 1.6, borderBottom: '1px solid var(--border)', whiteSpace: 'pre-wrap' }}>
+            <div style={{ padding: '10px 16px', fontSize: 13, color: 'var(--text-2)', lineHeight: 1.6, borderBottom: '1px solid color-mix(in srgb, var(--accent) 20%, transparent)', whiteSpace: 'pre-wrap' }}>
               {focusTodo.description}
             </div>
           )}
