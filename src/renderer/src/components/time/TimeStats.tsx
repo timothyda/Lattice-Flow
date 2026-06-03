@@ -149,7 +149,7 @@ export default function TimeStats({ sessions, users, onSessionDeleted, showOvert
                 <td className="time-session-note">{s.todo_title ?? <span className="time-no-note">—</span>}</td>
                 <td className="time-session-note">
                   {s.subtask_title
-                    ? <span style={{ background: '#f0f2f8', borderRadius: 10, padding: '2px 8px', fontSize: 11 }}>{s.subtask_title}</span>
+                    ? <span style={{ background: 'var(--surface-rsd)', color: 'var(--text-2)', borderRadius: 10, padding: '2px 8px', fontSize: 11 }}>{s.subtask_title}</span>
                     : <span className="time-no-note">—</span>}
                 </td>
                 <td className="time-stat-num" style={sessionDurationColor(s.duration_minutes ?? 0)}>{fmtHours(s.duration_minutes ?? 0)}</td>
@@ -164,7 +164,7 @@ export default function TimeStats({ sessions, users, onSessionDeleted, showOvert
               {s.note && (
                 <tr>
                   <td colSpan={6} style={{ paddingTop: 0, paddingBottom: 8, paddingLeft: 12, paddingRight: 12 }}>
-                    <div style={{ fontSize: 12, color: '#676879', background: '#f8f9fb', borderRadius: 6, padding: '5px 10px', borderLeft: '2px solid #c3c6d4' }}>
+                    <div style={{ fontSize: 12, color: 'var(--text-2)', background: 'var(--surface-sub)', borderRadius: 6, padding: '5px 10px', borderLeft: '2px solid var(--border-str)' }}>
                       {s.note}
                     </div>
                   </td>
