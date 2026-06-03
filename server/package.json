@@ -6,7 +6,19 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
-    "start": "node dist/index.js"
+    "start": "node dist/index.js",
+    "package:win": "npm run build && pkg dist/index.js --targets node18-win-x64 --output opus-flo-server.exe",
+    "package:mac": "npm run build && pkg dist/index.js --targets node18-macos-x64 --output opus-flo-server-mac",
+    "package:linux": "npm run build && pkg dist/index.js --targets node18-linux-x64 --output opus-flo-server-linux"
+  },
+  "pkg": {
+    "assets": [
+      "node_modules/better-sqlite3/build/Release/better_sqlite3.node",
+      "node_modules/better-sqlite3/build/Release/*.node"
+    ],
+    "scripts": [
+      "node_modules/better-sqlite3/lib/**/*.js"
+    ]
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
@@ -17,6 +29,7 @@
     "ws": "^8.20.0"
   },
   "devDependencies": {
+    "@yao-pkg/pkg": "^5.11.5",
     "@types/bcryptjs": "^2.4.6",
     "@types/better-sqlite3": "^7.6.11",
     "@types/cors": "^2.8.17",
