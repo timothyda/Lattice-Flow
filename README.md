@@ -1,10 +1,10 @@
 # Opus Flo
 
-A self-hosted project management desktop application built with Electron, React, TypeScript, and SQLite.
-Designed for creative agencies and small teams — manage clients, projects, tasks, time tracking, meetings,
-and calendar events from a single window.
+A self-hosted project management desktop application for creative agencies and small teams.
+Manage clients, projects, tasks, time tracking, meetings, and calendar events from a single window.
 
-**Multi-user architecture:** a lightweight Node.js server owns the database and runs on your office network or NAS (e.g. Synology via Docker). Each team member runs the Electron client and connects to the shared server over the local network or VPN.
+**Architecture:** a lightweight Node.js server owns the shared database and runs on your network.
+Each team member installs the desktop app and connects to that server.
 
 Author: Timothy Alden
 
@@ -12,36 +12,170 @@ Author: Timothy Alden
 
 ## Table of Contents
 
-- [Prerequisites](#prerequisites)
+- [Quick Start](#quick-start)
+- [Scenario A — Local / Solo Use](#scenario-a--local--solo-use)
+- [Scenario B — Team Server (Office PC or NAS)](#scenario-b--team-server-office-pc-or-nas)
+- [First Run — Organization Setup](#first-run--organization-setup)
 - [Architecture Overview](#architecture-overview)
-- [Server Setup](#server-setup)
-- [Client Setup](#client-setup)
-- [First Run](#first-run)
-- [Synology NAS Deployment](#synology-nas-deployment)
 - [Features](#features)
 - [Calendar Integration Setup](#calendar-integration-setup)
 - [Email Notifications Setup](#email-notifications-setup)
 - [Meeting Transcription Setup](#meeting-transcription-setup)
-- [Building a Distributable Package](#building-a-distributable-package)
+- [Developer Setup (from source)](#developer-setup-from-source)
+- [Building a Release](#building-a-release)
 - [Tech Stack](#tech-stack)
 
 ---
 
-## Prerequisites
+## Quick Start
 
-| Requirement | Version | Notes |
-|---|---|---|
-| Node.js | 20 LTS | Required. Use [nvm-windows](https://github.com/coreybutler/nvm-windows) on Windows |
-| npm | Comes with Node | — |
-| Git | Any | To clone the repository |
+Download both files from the [**GitHub Releases page**](https://github.com/timothyda/Opus-Flo/releases):
 
-On Windows, install Node 20 via nvm-windows:
+| File | What it is |
+|---|---|
+| `opus-flo-setup.exe` | The desktop app — install on every team member's PC |
+| `opus-flo-server.zip` | The server — run once, on a shared machine or your own PC |
 
-```powershell
-nvm install 20
-nvm use 20
-node --version   # should print v20.x.x
+Choose your setup:
+
+- **Just me / solo use** → [Scenario A](#scenario-a--local--solo-use) — run everything on your own machine
+- **Team of 2–15 people** → [Scenario B](#scenario-b--team-server-office-pc-or-nas) — server on a shared office PC or NAS
+
+---
+
+## Scenario A — Local / Solo Use
+
+Run the server and the desktop app on the same machine. Everything stays local.
+
+### 1. Install Node.js
+
+Download and install **Node.js 20 LTS** from [nodejs.org](https://nodejs.org).
+
+### 2. Set up the server
+
+1. Extract `opus-flo-server.zip` to a permanent folder (e.g. `C:\OpusFlo\server\`)
+2. Copy `.env.example` to `.env` and open it in a text editor
+3. Change `JWT_SECRET` to any long random string (keep it secret)
+4. Double-click `start.bat`
+
+The server window will show:
+
 ```
+Opus Flo server running on port 3847
+DB: ./data/opus-flo.db
+```
+
+Keep this window open while using the app.
+
+### 3. Install and open the desktop app
+
+Run `opus-flo-setup.exe` and follow the installer. Open **Opus Flo** from the Start Menu or desktop shortcut.
+
+### 4. Connect
+
+When the app opens it shows the server setup screen. Because the server is on the same machine, click **Skip setup guide** and enter:
+
+```
+http://localhost:3847
+```
+
+Click **Connect**, then follow the [Organization Setup](#first-run--organization-setup) steps.
+
+> **Auto-start on login (optional):** Right-click `start.bat` → Create shortcut → move to `shell:startup` (`Win + R`, type `shell:startup`). The server will start automatically when you log in to Windows.
+
+---
+
+## Scenario B — Team Server (Office PC or NAS)
+
+One machine runs the server permanently. All team members connect to it over the local network.
+
+### Option 1 — Office PC (Windows, any existing computer)
+
+1. On the **server machine**, install Node.js 20 LTS from [nodejs.org](https://nodejs.org)
+2. Extract `opus-flo-server.zip` to a permanent folder (e.g. `C:\OpusFlo\server\`)
+3. Copy `.env.example` to `.env` — edit `JWT_SECRET` and optionally `PORT`
+4. Run `start.bat` — note the IP address printed:
+   ```
+   Opus Flo server running on http://192.168.1.42:3847
+   ```
+5. On each **team member's PC**, install `opus-flo-setup.exe`
+6. On first launch, enter `http://192.168.1.42:3847` (use the actual IP from step 4)
+
+**Keep the server running:** use [PM2](https://pm2.keymetrics.io/) to keep the server alive and restart it automatically after reboots:
+
+```bash
+npm install -g pm2
+cd C:\OpusFlo\server
+pm2 start dist/index.js --name opus-flo
+pm2 save
+pm2 startup
+```
+
+---
+
+### Option 2 — Synology NAS (Docker)
+
+> Requires a Synology NAS with Container Manager installed (DSM 7+, most Plus/XS models).
+
+1. **Install Container Manager** — open **Package Center**, search for Container Manager, install it
+
+2. **Transfer the server files** — copy the extracted `opus-flo-server/` folder to your NAS (e.g. `/volume1/opus-flo/`)
+
+3. **Create the container** in Container Manager → Containers → Create:
+
+   | Setting | Value |
+   |---|---|
+   | Image | `node:20-alpine` |
+   | Container name | `opus-flo-server` |
+   | Port | `3847 → 3847` (local → container) |
+   | Volume | `/volume1/opus-flo/server` → `/app` |
+   | Working directory | `/app` |
+   | Command | `node dist/index.js` |
+   | Environment | `JWT_SECRET=your-secret`, `DB_PATH=/app/data/opus-flo.db`, `PORT=3847` |
+
+4. Start the container. Team members connect to `http://[nas-ip]:3847`
+
+**Backups:** the entire database is a single file at `DB_PATH`. Back it up with Synology HyperBackup or any file-copy tool. It's safe to copy while the server runs (SQLite WAL mode).
+
+**HTTPS (recommended for remote access):** use Synology's built-in **Reverse Proxy** (Control Panel → Login Portal → Advanced → Reverse Proxy) with a Let's Encrypt certificate. Team members can then connect via `https://yourname.synology.me:3847` or through your company VPN.
+
+---
+
+### Option 3 — Linux / Mac server or NAS (without Docker)
+
+Any machine with Node.js 20 works.
+
+```bash
+# Extract the zip, then:
+cd opus-flo-server
+cp .env.example .env
+nano .env          # set JWT_SECRET at minimum
+node dist/index.js
+```
+
+For auto-restart, use PM2:
+
+```bash
+npm install -g pm2
+pm2 start dist/index.js --name opus-flo
+pm2 save && pm2 startup
+```
+
+---
+
+## First Run — Organization Setup
+
+After connecting to the server for the first time:
+
+### 1. Organization setup (admin only — done once)
+
+The first person to connect runs the setup wizard:
+- Enter your organization name, your name, email, and a password
+- A **recovery code** is generated — save it somewhere safe. It is the only way to recover the admin account if the password is lost.
+
+### 2. Invite team members
+
+Once logged in as admin, go to the **Team** view (people icon in the sidebar) → **Invite user**. An invite token is generated. Share it with the new user — they enter it on first login to set their password.
 
 ---
 
@@ -52,366 +186,210 @@ node --version   # should print v20.x.x
 │           Office Network / VPN           │
 │                                          │
 │   ┌──────────────────────────────────┐   │
-│   │    Server  (server/)             │   │
+│   │    Server  (opus-flo-server/)    │   │
 │   │    Node.js + Express + WS        │   │
 │   │    Owns opus-flo.db (SQLite)     │   │
 │   │    JWT auth  •  Port 3847        │   │
 │   └──────────────────────────────────┘   │
 │         ▲            ▲           ▲       │
-│   [User 1]      [User 2]   [User 3…15]   │
+│   [User 1]      [User 2]   [User 3…]     │
 │   Electron      Electron     Electron    │
 └──────────────────────────────────────────┘
 ```
 
-- **Server** — runs once, on a dedicated machine or NAS. Owns the SQLite file and handles all data operations over a REST + WebSocket API with JWT authentication.
-- **Client** — the Electron app each team member runs. On first launch it asks for the server URL; after that it connects automatically.
-
----
-
-## Server Setup
-
-The server lives in the `server/` directory and is a standalone Node.js package.
-
-### 1. Install dependencies
-
-```bash
-cd server
-npm install
-```
-
-> `npm install` compiles `better-sqlite3` for plain Node.js. This is separate from the Electron client's own compilation — both must be installed independently.
-
-### 2. Configure environment
-
-```bash
-cp .env.example .env
-```
-
-Open `server/.env` and set at minimum:
-
-```env
-PORT=3847
-DB_PATH=./data/opus-flo.db
-JWT_SECRET=replace-with-a-long-random-string
-```
-
-Generate a strong JWT secret:
-
-```bash
-node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
-```
-
-### 3. Start the server
-
-**Development (auto-restarts on changes):**
-
-```bash
-npm run dev
-```
-
-**Production:**
-
-```bash
-npm run build
-npm start
-```
-
-The server creates the database automatically on first run. Verify it's running:
-
-```
-GET http://localhost:3847/health
-→ { "ok": true }
-```
-
----
-
-## Client Setup
-
-```bash
-git clone https://github.com/timothyda/Opus-Flo.git
-cd Opus-Flo
-npm install
-```
-
-`npm install` automatically recompiles native modules (bcrypt) for Electron via the `postinstall` script.
-
-Configure the client `.env` for any optional calendar integrations (see [Calendar Integration Setup](#calendar-integration-setup)):
-
-```bash
-cp .env.example .env
-```
-
-Start the client:
-
-```bash
-npm run dev
-```
-
----
-
-## First Run
-
-### 1. Connect to the server
-
-On first launch the client shows a **"Connect to your organization's server"** screen.
-
-Enter the server URL (e.g. `http://192.168.1.100:3847`) and click **Connect**. The client tests the connection, saves the URL, and proceeds.
-
-> The server URL is stored locally per machine. Each team member enters it once on first launch.
-
-### 2. Organization setup
-
-The first client to connect runs the org setup wizard:
-
-- Organization name
-- Admin name, email, and password
-- A **recovery code** is generated — save it somewhere safe. It is the only way to recover the admin account if the password is lost.
-
-### 3. Inviting team members
-
-Once logged in as admin, go to the **Team** view (people icon in the sidebar) and click **Invite user**. An invite token is generated that the new user enters on their first login to set their password.
-
----
-
-## Reconnecting
-
-If the connection is lost, a banner appears at the top of the app:
-
-- **Amber banner** — the client is auto-retrying with exponential backoff (2s → 4s → 8s → … → 60s).
-- **Red banner** — retries exhausted. Click **Retry** to try again, or **Change Server URL** to enter a new address.
-
-The server URL can also be changed proactively from the red banner before the connection actually breaks.
-
----
-
-## Synology NAS Deployment
-
-The server is designed to run as a Docker container on a Synology NAS.
-
-### 1. Install Docker
-
-In Synology DSM, open **Package Center** and install **Container Manager**.
-
-### 2. Create the container
-
-In Container Manager, create a new container from the project image (or build your own — a `Dockerfile` can be added to `server/`):
-
-| Setting | Value |
-|---|---|
-| Image | Your built image |
-| Port | `3847:3847` |
-| Volume | `/volume1/opus-flo/data` → `/app/data` |
-| Environment | `JWT_SECRET`, `PORT`, `DB_PATH=/app/data/opus-flo.db` |
-
-### 3. HTTPS (recommended)
-
-Use Synology's built-in **Reverse Proxy** (Control Panel → Login Portal → Advanced → Reverse Proxy) with a Let's Encrypt certificate to expose the server over HTTPS. Team members can then connect via `https://your-nas.synology.me:3847` — or over your company VPN for remote access.
-
-### 4. Backups
-
-The entire database is a single file at the volume path you configured. Back it up with Synology's HyperBackup or any standard file backup tool. The server runs SQLite in WAL mode, so the file is safe to copy while the server is running.
+- **Server** — runs once on a shared machine. Owns the SQLite database and handles all data over a REST + WebSocket API with JWT auth.
+- **Client** — the Electron desktop app each user installs. On first launch it asks for the server URL; after that it reconnects automatically.
 
 ---
 
 ## Features
 
 ### Clients & Projects
-- Hierarchical sidebar: clients expand to show their projects
-- Client dashboard with logo, description, contact info, and linked projects
-- Per-client contacts with roles (separate from the primary contact)
-- Archive clients and projects without deleting them
+- Sidebar tree: clients expand to show their projects
+- Client dashboard with contacts, description, and linked projects
+- Archive clients/projects without deleting them
 
 ### Tasks
-- Tasks belong to projects and optionally to phases within a project
-- Status workflow: Planning → Ready for Design → In Progress → Ready for Review → Complete (and more)
-- Priority levels, due dates, assignees, and subtasks from templates
-- **Role routing** (Settings → Roles): configure which roles are automatically assigned when a task moves to a given status
-- **Task templates** (Settings → Task Templates): reusable task lists per project type
-- Recurring tasks with configurable frequency
+- Flat task list per project with status, priority, due dates, assignees
+- Status workflow: Planning → Ready for Design → In Progress → Ready for Review → Complete
+- Multi-file attachments per task
+- Task templates per project type; recurring tasks
+- Role routing: auto-assign tasks to roles on status change
 
 ### Time Tracking
-- Clock in/out against a project or specific task
-- Manual session logging
-- CSV export per project
+- Clock in/out per project or task; manual logging
+- Time budget tracking per project
+- CSV export
 
 ### Calendar
-- Aggregate view across all connected providers (Microsoft, Google, Zoom, CalDAV)
-- Events are color-coded and labeled by source account
-- Link any calendar event to a project as a meeting record
+- Connects to Microsoft, Google, Zoom, and CalDAV accounts
+- Week and month views
+- Link calendar events to projects as meeting records
 
-> Calendar accounts are per-machine (OAuth tokens stay on the local device).
-
-### Meetings
-- Link calendar events to projects
-- Record screen/audio during meetings (requires Whisper + recorder setup)
-- Auto-transcription via local Whisper model
+### Files
+- Per-project file browser (works with any folder/NAS path)
+- Drag-and-drop upload; recent files widget
+- File attachments linked to tasks
 
 ### Notifications
-- In-app notification bell for task assignments, status changes, and completions
-- Real-time updates pushed to all connected clients via WebSocket
-- Email notifications via SMTP (Settings → Email / Notifications)
-- Per-user opt-in controls for each notification type
+- In-app notification bell (real-time via WebSocket)
+- Email notifications via SMTP
+- Per-user opt-in controls
 
-### Dashboard
-- Customizable widget layout per role
-- Widgets: open tasks, completed tasks, calendar, time summary, team workload, upcoming deadlines, org stats, and more
-
-### Settings
-| Tab | What it controls |
-|---|---|
-| Organization | Rename the org |
-| Transcription | Import Whisper CLI and model |
-| Task Templates | Manage reusable task lists per project type |
-| Roles | Configure which roles receive tasks on status change |
-| Email | SMTP server configuration |
-| Notifications | Per-user email notification preferences |
-| Calendar | Connect and manage calendar accounts |
+### Dark / Light Mode
+- Toggle with the ◑ button in the sidebar — preference is saved per machine.
 
 ---
 
 ## Calendar Integration Setup
 
-Calendar accounts are added per-user in **Settings → Calendar** after logging in. Each account connects independently, and you can have multiple accounts from the same provider.
-
-Events appear in the **Calendar** view, color-coded by source account. Any event can be linked to a project as a meeting record.
-
----
+Calendar accounts are added per-user in **Settings → Calendar**. Multiple accounts and providers can be connected simultaneously.
 
 ### Microsoft Calendar
 
-1. Go to [Azure Portal](https://portal.azure.com) → **Entra ID → App registrations → New registration**
-2. Name it anything (e.g. "Opus Flo Calendar")
-3. Supported account types: **Accounts in any organizational directory and personal Microsoft accounts**
-4. Platform: **Mobile and desktop applications**
-5. Redirect URI: `http://localhost`
-6. Go to **API permissions → Add a permission → Microsoft Graph → Delegated:**
-   - `User.Read`
-   - `Calendars.Read`
-   - `offline_access`
-7. Grant admin consent
-8. Copy the **Application (client) ID** into the client `.env`:
+1. [Azure Portal](https://portal.azure.com) → Entra ID → App registrations → New registration
+2. Supported account types: **Accounts in any organizational directory and personal Microsoft accounts**
+3. Platform: **Mobile and desktop applications**, Redirect URI: `http://localhost`
+4. API permissions → Add: `User.Read`, `Calendars.Read`, `offline_access` (Delegated)
+5. Grant admin consent
+6. Copy the **Application (client) ID** into the client `.env`:
    ```env
    AZURE_CLIENT_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
    AZURE_TENANT_ID=common
    ```
 
----
-
 ### Google Calendar
 
-1. Go to [Google Cloud Console](https://console.cloud.google.com) → **APIs & Services → Library**
-2. Enable **Google Calendar API**
-3. Go to **Credentials → Create Credentials → OAuth client ID**
-4. Application type: **Desktop app**
-5. Copy into the client `.env`:
+1. [Google Cloud Console](https://console.cloud.google.com) → APIs & Services → Enable **Google Calendar API**
+2. Credentials → Create Credentials → OAuth client ID → **Desktop app**
+3. Copy into the client `.env`:
    ```env
    GOOGLE_CLIENT_ID=xxxxxxxxxx.apps.googleusercontent.com
    GOOGLE_CLIENT_SECRET=GOCSPX-xxxxxxxxxx
    ```
-6. In **OAuth consent screen**, add scope `https://www.googleapis.com/auth/calendar.readonly`
+4. OAuth consent screen → add scope `https://www.googleapis.com/auth/calendar.readonly`
 
 > If your project is in "Testing" mode, add each user's Google account as a test user.
 
----
-
 ### Zoom
 
-1. Go to [Zoom Marketplace](https://marketplace.zoom.us/develop/create) → **General App**
-2. Redirect URL: `http://localhost`
-3. Scopes: `meeting:read:list_meetings`, `user:read:user`
-4. Copy into the client `.env`:
+1. [Zoom Marketplace](https://marketplace.zoom.us/develop/create) → General App
+2. Redirect URL: `http://localhost`, Scopes: `meeting:read:list_meetings`, `user:read:user`
+3. Copy into the client `.env`:
    ```env
    ZOOM_CLIENT_ID=xxxxxxxxxx
    ZOOM_CLIENT_SECRET=xxxxxxxxxxxxxxxxxxxxxxxxxx
    ```
 
----
+### CalDAV (Nextcloud, Baikal, Fastmail, Apple Calendar, etc.)
 
-### CalDAV (Nextcloud, Baikal, Radicale, Apple Calendar, Fastmail, etc.)
-
-No `.env` configuration needed. In **Settings → Calendar**, click **Add CalDAV Server** and enter:
-
-| Field | Example |
-|---|---|
-| Server URL | `https://nextcloud.example.com` |
-| Username | `your@email.com` or your username |
-| Password | Your account password or an app password (recommended) |
-| Display label | Optional — e.g. "Work" |
-
-The app performs automatic CalDAV discovery — provide the server root URL and it will find your calendars automatically.
-
-> **Nextcloud users:** If your instance has 2FA enabled, create a dedicated app password in Nextcloud → Settings → Security → Devices & sessions.
+No `.env` needed. In **Settings → Calendar**, click **Add CalDAV Server** and enter the server URL, username, and password (use an app password if 2FA is enabled).
 
 ---
 
 ## Email Notifications Setup
 
-Go to **Settings → Email** and enter your SMTP server details. Any standard SMTP server works (SendGrid, Mailgun, Gmail, Synology MailPlus, etc.).
+Go to **Settings → Email** and enter your SMTP server details. Any standard SMTP server works (SendGrid, Mailgun, Gmail with App Passwords, Synology MailPlus).
 
 | Field | Example |
 |---|---|
 | Host | `smtp.sendgrid.net` |
 | Port | `587` |
-| Secure (TLS) | On for port 465, Off for 587 |
 | Username | `apikey` (SendGrid) or your email |
 | Password | SMTP password or API key |
-| From name | `Opus Flo` |
 | From email | `notifications@yourdomain.com` |
 
 Click **Test Connection** to verify before saving.
-
-> SMTP configuration is stored locally on each machine. In a future release this will move to the server so only the admin needs to configure it.
 
 ---
 
 ## Meeting Transcription Setup
 
-The transcription feature uses [Whisper.cpp](https://github.com/ggerganov/whisper.cpp) running locally — no cloud service or API key required.
+Uses [Whisper.cpp](https://github.com/ggerganov/whisper.cpp) running locally — no cloud API required.
 
 Go to **Settings → Transcription** and follow the status indicators:
 
-1. **Whisper CLI** (`main.exe` on Windows) — click **Import…** to add it
-2. **Whisper.dll** — copy `whisper.dll` from the CLI folder into the whisper folder shown at the top of the tab
-3. **Whisper model** (`ggml-medium.en.bin`, ~1.5 GB) — click **Import…** to add it, or download from [Hugging Face](https://huggingface.co/ggerganov/whisper.cpp)
+1. **Whisper CLI** (`main.exe`) — click **Import…** to locate it
+2. **Whisper.dll** — copy it from the CLI folder into the whisper folder shown in the tab
+3. **Whisper model** (`ggml-medium.en.bin`, ~1.5 GB) — click **Import…** or download from [Hugging Face](https://huggingface.co/ggerganov/whisper.cpp)
 
-Once all three show green, you can record meetings from any project's Meetings tab and transcribe them with one click.
-
-> Whisper files are stored per machine — each team member who wants transcription sets this up independently.
+Each team member who wants transcription sets this up independently on their own machine.
 
 ---
 
-## Building a Distributable Package
+## Developer Setup (from source)
 
-Build a native installer for the current platform:
+### Prerequisites
+
+| Requirement | Version |
+|---|---|
+| Node.js | 20 LTS — use [nvm-windows](https://github.com/coreybutler/nvm-windows) on Windows |
+| Git | Any |
+
+### Server
 
 ```bash
-npm run package
+cd server
+npm install
+cp .env.example .env   # edit JWT_SECRET
+npm run dev            # starts with auto-reload
 ```
 
-Output is placed in `dist/`:
-- **Windows:** NSIS installer (`.exe`)
-- **macOS:** `.dmg`
-- **Linux:** `.AppImage` and `.deb`
+### Client
 
-Distribute the installer to each team member. They install and run the app, then enter the server URL on first launch.
+```bash
+git clone https://github.com/timothyda/Opus-Flo.git
+cd Opus-Flo
+npm install            # also rebuilds native modules for Electron
+cp .env.example .env   # add calendar credentials if needed
+npm run dev
+```
+
+---
+
+## Building a Release
+
+### Desktop app (Electron installer)
+
+```bash
+# From repo root
+npm run package
+# → dist/opus-flo-1.0.0-setup.exe  (Windows NSIS installer)
+# → dist/opus-flo-1.0.0.dmg        (macOS)
+```
+
+### Server package (zip)
+
+```powershell
+# From repo root (Windows PowerShell)
+.\scripts\build-server-release.ps1
+# → release/opus-flo-server.zip
+```
+
+This script compiles the TypeScript and bundles the output with `node_modules`, `start.bat`, `start.sh`, `.env.example`, and a `README.txt`. Requires Node.js 20 on the machine doing the build.
+
+### GitHub Release checklist
+
+1. Tag the commit: `git tag v1.x.x && git push --tags`
+2. Create a new Release on GitHub
+3. Attach both files:
+   - `opus-flo-setup.exe` (from `dist/`)
+   - `opus-flo-server.zip` (from `release/`)
 
 ---
 
 ## Tech Stack
 
-### Client (Electron app)
-
+### Client
 | Layer | Technology |
 |---|---|
-| Desktop shell | [Electron](https://www.electronjs.org/) 33 |
-| Frontend | [React](https://react.dev/) 18 + TypeScript |
-| Build tool | [electron-vite](https://electron-vite.org/) + Vite 5 |
-| Auth | JWT (stored via Electron safeStorage) |
-| Email | nodemailer |
+| Desktop shell | Electron 33 |
+| Frontend | React 18 + TypeScript |
+| Build | electron-vite + Vite |
+| Auth | JWT via Electron safeStorage |
 | Packaging | electron-builder |
 
 ### Server
-
 | Layer | Technology |
 |---|---|
 | Runtime | Node.js 20 |
@@ -419,4 +397,3 @@ Distribute the installer to each team member. They install and run the app, then
 | Real-time | WebSocket (`ws`) |
 | Database | SQLite via better-sqlite3 |
 | Auth | bcryptjs + JSON Web Tokens |
-| Deployment | Docker (Synology NAS or any Linux host) |

@@ -97,9 +97,29 @@ wss.on('connection', (ws, req) => {
   })
 })
 
+import { networkInterfaces } from 'os'
+
 const PORT = Number(process.env.PORT ?? 3847)
 
+function getLanIP(): string {
+  const nets = networkInterfaces()
+  for (const iface of Object.values(nets)) {
+    for (const addr of iface ?? []) {
+      if (addr.family === 'IPv4' && !addr.internal) return addr.address
+    }
+  }
+  return 'localhost'
+}
+
 server.listen(PORT, () => {
-  console.log(`Opus Flo server running on port ${PORT}`)
-  console.log(`DB: ${process.env.DB_PATH ?? './data/opus-flo.db'}`)
+  const ip = getLanIP()
+  console.log('┌─────────────────────────────────────────────┐')
+  console.log('│           Opus Flo Server running           │')
+  console.log('├─────────────────────────────────────────────┤')
+  console.log(`│  Local:    http://localhost:${PORT}            │`)
+  console.log(`│  Network:  http://${ip}:${PORT}`.padEnd(47) + '│')
+  console.log('├─────────────────────────────────────────────┤')
+  console.log(`│  DB: ${(process.env.DB_PATH ?? './data/opus-flo.db').slice(0, 39).padEnd(39)} │`)
+  console.log('└─────────────────────────────────────────────┘')
+  console.log('  Give team members the Network URL above.')
 })
