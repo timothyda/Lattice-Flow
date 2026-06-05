@@ -49,7 +49,7 @@ Run the server and the desktop app on the same machine. Everything stays local.
 
 ### 1. Install Node.js
 
-Download and install **Node.js 18 or newer (LTS recommended)** from [nodejs.org](https://nodejs.org).
+Download and install **Node.js 22 LTS** from [nodejs.org](https://nodejs.org).
 
 ### 2. Set up the server
 
@@ -91,7 +91,7 @@ One machine runs the server permanently. All team members connect to it over the
 
 ### Option 1 — Office PC (Windows, any existing computer)
 
-1. On the **server machine**, install Node.js 18 or newer (LTS recommended) from [nodejs.org](https://nodejs.org)
+1. On the **server machine**, install Node.js 22 LTS from [nodejs.org](https://nodejs.org)
 2. Extract `opus-flo-server.zip` to a permanent folder (e.g. `C:\OpusFlo\server\`)
 3. Copy `.env.example` to `.env` — edit `JWT_SECRET` and optionally `PORT`
 4. Run `start.bat` — note the IP address printed:
