@@ -47,16 +47,12 @@ Choose your setup:
 
 Run the server and the desktop app on the same machine. Everything stays local.
 
-### 1. Install Node.js
-
-Download and install **Node.js 22 LTS** from [nodejs.org](https://nodejs.org).
-
-### 2. Set up the server
+### 1. Set up the server
 
 1. Extract `opus-flo-server.zip` to a permanent folder (e.g. `C:\OpusFlo\server\`)
 2. Copy `.env.example` to `.env` and open it in a text editor
 3. Change `JWT_SECRET` to any long random string (keep it secret)
-4. Double-click `start.bat`
+4. Double-click `start.bat` — Node.js is bundled, no install needed
 
 The server window will show:
 
