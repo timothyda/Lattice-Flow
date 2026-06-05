@@ -33,12 +33,21 @@ if (-not (Test-Path $nodeCache)) {
     Write-Host "Using cached Node.js v$nodeVersion" -ForegroundColor Gray
 }
 
-# ── Reinstall server deps for current Node version ──────────────────────────
-# This recompiles better-sqlite3 so its ABI matches the bundled node.exe
-Write-Host "Installing server dependencies for Node $activeNode..." -ForegroundColor Cyan
+# ── Reinstall + recompile native addons for current Node version ─────────────
+# npm install alone skips recompilation if better-sqlite3 is already present.
+# We delete the build folder and force a clean rebuild to match the bundled node.exe ABI.
+Write-Host "Recompiling native addons for Node $activeNode..." -ForegroundColor Cyan
 Push-Location $server
+$bsqlBuild = Join-Path $server "node_modules\better-sqlite3\build"
+if (Test-Path $bsqlBuild) {
+    Remove-Item $bsqlBuild -Recurse -Force
+    Write-Host "  Cleared better-sqlite3 build cache" -ForegroundColor Gray
+}
 npm install
 if ($LASTEXITCODE -ne 0) { Write-Host "npm install failed" -ForegroundColor Red; exit 1 }
+npm rebuild better-sqlite3
+if ($LASTEXITCODE -ne 0) { Write-Host "npm rebuild failed" -ForegroundColor Red; exit 1 }
+Write-Host "  better-sqlite3 recompiled for Node $activeNode" -ForegroundColor Gray
 Pop-Location
 
 # ── Build TypeScript ─────────────────────────────────────────────────────────
