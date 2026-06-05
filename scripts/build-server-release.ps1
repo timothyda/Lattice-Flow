@@ -58,7 +58,7 @@ node dist/index.js
 # Opus Flo Server
 
 ## Requirements
-- Node.js 20 LTS  (https://nodejs.org)
+- Node.js 18 or newer  (https://nodejs.org — download the LTS version)
 
 ## Setup (first time only)
 1. Copy .env.example to .env
