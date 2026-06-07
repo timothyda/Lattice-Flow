@@ -280,6 +280,18 @@ function App(): JSX.Element {
     )
   }
 
+  if (connState === 'auth_expired') {
+    return (
+      <div className="app" style={{ background: 'var(--bg-page)' }}>
+        <SignInView
+          org={org}
+          onSignedIn={handleSignedIn}
+          onCreateNewOrg={() => setShowOrgSetup(true)}
+        />
+      </div>
+    )
+  }
+
   if (!org || showOrgSetup) {
     return (
       <div className="app" style={{ background: 'var(--bg-page)' }}>

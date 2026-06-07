@@ -12,7 +12,7 @@ import {
 } from './db/users'
 
 const JWT_SECRET = process.env.JWT_SECRET ?? 'dev-secret-change-in-production'
-const SESSION_TTL_SECONDS = 14 * 60 * 60
+const SESSION_TTL_SECONDS = 30 * 24 * 60 * 60
 const MAX_FAILED_ATTEMPTS = 5
 const LOCKOUT_MINUTES = 15
 

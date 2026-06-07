@@ -4,7 +4,7 @@ import type { Organization, User, AuthUser } from '../../../../shared/types'
 type Mode = 'login' | 'activate' | 'migrate' | 'forgot'
 
 interface Props {
-  org: Organization
+  org: Organization | null
   onSignedIn: (user: User, authUser: AuthUser) => void
   onCreateNewOrg: () => void
 }
@@ -202,11 +202,16 @@ function SignInView({ org, onSignedIn, onCreateNewOrg }: Props): JSX.Element {
     <div className="org-setup-screen">
       <div className="org-setup-card">
         <div className="org-setup-logo">PM</div>
-        <h1 className="org-setup-title">{org.name}</h1>
+        <h1 className="org-setup-title">{org?.name ?? 'Welcome back'}</h1>
 
         {/* ── Login ── */}
         {mode === 'login' && (
           <>
+            {!org && (
+              <div className="org-setup-error" style={{ marginBottom: 8 }}>
+                Your session expired. Please sign in again.
+              </div>
+            )}
             <p className="org-setup-subtitle">Sign in to continue.</p>
             <div className="org-setup-step">
               {error && <div className="org-setup-error">{error}</div>}
