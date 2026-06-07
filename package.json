@@ -24,7 +24,7 @@
     "ws": "^8.20.0"
   },
   "devDependencies": {
-    "@electron/rebuild": "^0.0.0",
+    "@electron/rebuild": "^4.0.4",
     "@types/bcryptjs": "^2.4.6",
     "@types/better-sqlite3": "^7.6.11",
     "@types/node": "^22.0.0",

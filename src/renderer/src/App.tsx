@@ -146,6 +146,10 @@ function App(): JSX.Element {
     setOrg(freshOrg)
     setSelectedClientId(null)
     setSelectedProjectId(null)
+    // Reconnect the WebSocket with the fresh JWT. This transitions connState
+    // away from 'auth_expired' (connecting → connected), which unblocks the
+    // render gate that was keeping the app stuck on the sign-in screen.
+    window.api.connection.retry()
   }, [])
 
   // ── Auth ───────────────────────────────────────────────────────────────────
