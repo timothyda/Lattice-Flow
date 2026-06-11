@@ -5,7 +5,7 @@ import { dirname, resolve } from 'path'
 let db: Database.Database | null = null
 
 function resolveDbPath(): string {
-  const dbPath = resolve(process.env.DB_PATH ?? './data/opus-flo.db')
+  const dbPath = process.env.DB_PATH ? resolve(process.env.DB_PATH) : resolve(__dirname, '../../data/opus-flo.db')
   const dir = dirname(dbPath)
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
   return dbPath
