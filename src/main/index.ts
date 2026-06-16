@@ -1,5 +1,5 @@
 import 'dotenv/config'
-import { app, BrowserWindow, protocol, net } from 'electron'
+import { app, BrowserWindow, protocol, net, session, shell } from 'electron'
 import { join } from 'path'
 import { pathToFileURL } from 'url'
 import { registerIpcHandlers } from './ipc'
@@ -19,7 +19,30 @@ function createWindow(): void {
     height: 800,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
-      sandbox: false
+      sandbox: false,
+      contextIsolation: true,
+    }
+  })
+
+  // Block new windows; open http/https links in the system browser instead
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (url.startsWith('https://') || url.startsWith('http://')) {
+      shell.openExternal(url).catch(() => {})
+    }
+    return { action: 'deny' }
+  })
+
+  // Prevent the renderer from navigating away from the app
+  mainWindow.webContents.on('will-navigate', (event, navigationUrl) => {
+    const devUrl = process.env['ELECTRON_RENDERER_URL']
+    if (devUrl) {
+      try {
+        if (!navigationUrl.startsWith(new URL(devUrl).origin)) event.preventDefault()
+      } catch {
+        event.preventDefault()
+      }
+    } else {
+      if (!navigationUrl.startsWith('file://')) event.preventDefault()
     }
   })
 
@@ -31,6 +54,25 @@ function createWindow(): void {
 }
 
 app.whenReady().then(async () => {
+  // Deny all OS permission requests (camera, mic, notifications, geolocation, etc.)
+  session.defaultSession.setPermissionRequestHandler((_webContents, _permission, callback) => {
+    callback(false)
+  })
+
+  // Apply CSP in production only (Vite dev server manages its own headers in dev)
+  if (!process.env['ELECTRON_RENDERER_URL']) {
+    session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+      callback({
+        responseHeaders: {
+          ...details.responseHeaders,
+          'Content-Security-Policy': [
+            "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: asset:; font-src 'self' data:; connect-src 'self' http: https: ws: wss:; media-src 'self' blob:;"
+          ]
+        }
+      })
+    })
+  }
+
   // Serve local files for image/PDF preview via asset:// URLs
   protocol.handle('asset', (request) => {
     const { searchParams } = new URL(request.url)

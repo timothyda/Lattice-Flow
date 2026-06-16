@@ -1,0 +1,44 @@
+{
+  "name": "opus-flo-server",
+  "version": "1.0.0",
+  "description": "Opus Flo – shared database server for NAS/local deployment",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "package:win": "npm run build && pkg dist/index.js --targets node18-win-x64 --output opus-flo-server.exe",
+    "package:mac": "npm run build && pkg dist/index.js --targets node18-macos-x64 --output opus-flo-server-mac",
+    "package:linux": "npm run build && pkg dist/index.js --targets node18-linux-x64 --output opus-flo-server-linux"
+  },
+  "pkg": {
+    "assets": [
+      "node_modules/better-sqlite3/build/Release/better_sqlite3.node",
+      "node_modules/better-sqlite3/build/Release/*.node"
+    ],
+    "scripts": [
+      "node_modules/better-sqlite3/lib/**/*.js"
+    ]
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "dotenv": "^16.4.5",
+    "better-sqlite3": "^12.9.0",
+    "cors": "^2.8.5",
+    "express": "^4.21.0",
+    "jsonwebtoken": "^9.0.2",
+    "ws": "^8.20.0"
+  },
+  "devDependencies": {
+    "@yao-pkg/pkg": "^5.11.5",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/better-sqlite3": "^7.6.11",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/jsonwebtoken": "^9.0.7",
+    "@types/node": "^22.0.0",
+    "@types/ws": "^8.18.1",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.3"
+  }
+}

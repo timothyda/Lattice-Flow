@@ -1,7 +1,7 @@
 import { getDb } from '.'
 import type { OrgFeatureKey, OrgFeatures } from '../shared/types'
 
-const FEATURE_KEYS: OrgFeatureKey[] = ['time_budgets', 'overtime_alerts', 'gantt_chart']
+const FEATURE_KEYS: OrgFeatureKey[] = ['time_budgets', 'overtime_alerts', 'gantt_chart', 'pause_split_sessions']
 
 export function getOrgFeatures(orgId: number): OrgFeatures {
   const rows = getDb().prepare('SELECT feature, enabled FROM org_features WHERE org_id = ?').all(orgId) as { feature: string; enabled: number }[]

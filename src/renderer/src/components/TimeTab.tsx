@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import type { TimeSession, User, TaskStatus, TaskFile, Todo } from '../../../shared/types'
 import ActiveTimer from './time/ActiveTimer'
 import HoursChart from './time/HoursChart'
@@ -34,10 +34,11 @@ interface Props {
   focusTodoId?: number | null
   focusTodoTitle?: string | null
   showOvertimeAlerts?: boolean
+  pauseSplitSessions?: boolean
   budgetMins?: number | null
 }
 
-export default function TimeTab({ projectId, focusTodoId, focusTodoTitle, showOvertimeAlerts, budgetMins }: Props): JSX.Element {
+export default function TimeTab({ projectId, focusTodoId, focusTodoTitle, showOvertimeAlerts, pauseSplitSessions, budgetMins }: Props): JSX.Element {
   const [sessions, setSessions] = useState<TimeSession[]>([])
   const [activeSessions, setActiveSessions] = useState<TimeSession[]>([])
   const [users, setUsers] = useState<User[]>([])
@@ -47,6 +48,11 @@ export default function TimeTab({ projectId, focusTodoId, focusTodoTitle, showOv
   const [exporting, setExporting] = useState(false)
   const [exportMsg, setExportMsg] = useState<string | null>(null)
   const [pausedTodo, setPausedTodo] = useState<{ id: number | null; title: string | null } | null>(null)
+  // Soft-pause tracking (only used when pauseSplitSessions is false)
+  const pausedSinceMsRef = useRef<number | null>(null)   // wall-clock ms when paused
+  const totalPausedMsRef = useRef<number>(0)              // accumulated paused time this session
+  const [pausedSinceMs, setPausedSinceMs] = useState<number | null>(null)
+  const [totalPausedMs, setTotalPausedMs] = useState<number>(0)
   const [focusFiles, setFocusFiles] = useState<TaskFile[]>([])
 
   // Task editing state
@@ -146,26 +152,56 @@ export default function TimeTab({ projectId, focusTodoId, focusTodoTitle, showOv
     }
   }, [focusTodo, editDesc, editStatus, editPriority, currentUser])
 
+  const resetSoftPause = useCallback(() => {
+    pausedSinceMsRef.current = null
+    totalPausedMsRef.current = 0
+    setPausedSinceMs(null)
+    setTotalPausedMs(0)
+  }, [])
+
   const handleClockIn = useCallback(async (todoId?: number | null) => {
     if (!currentUser) return
+    resetSoftPause()
     await window.api.time.clockIn(projectId, currentUser.id, todoId)
     setPausedTodo(null)
     await refresh()
-  }, [projectId, currentUser, refresh])
+  }, [projectId, currentUser, refresh, resetSoftPause])
 
   const handlePause = useCallback(async (sessionId: number) => {
     const session = activeSessions.find((s) => s.id === sessionId)
-    await window.api.time.clockOut(sessionId, 'Paused')
-    setPausedTodo({ id: session?.todo_id ?? null, title: session?.todo_title ?? null })
-    await refresh()
-  }, [activeSessions, refresh])
+    if (pauseSplitSessions) {
+      // Hard pause: close the session now, open a new one on resume
+      await window.api.time.clockOut(sessionId, 'Paused')
+      setPausedTodo({ id: session?.todo_id ?? null, title: session?.todo_title ?? null })
+      await refresh()
+    } else {
+      // Soft pause: freeze the timer client-side, session stays open in DB
+      const now = Date.now()
+      pausedSinceMsRef.current = now
+      setPausedSinceMs(now)
+      setPausedTodo({ id: session?.todo_id ?? null, title: session?.todo_title ?? null })
+    }
+  }, [activeSessions, pauseSplitSessions, refresh])
 
   const handleResume = useCallback(async () => {
     if (!currentUser) return
-    await window.api.time.clockIn(projectId, currentUser.id, pausedTodo?.id ?? null)
-    setPausedTodo(null)
-    await refresh()
-  }, [projectId, currentUser, pausedTodo, refresh])
+    if (pauseSplitSessions) {
+      // Hard pause: start a new session
+      await window.api.time.clockIn(projectId, currentUser.id, pausedTodo?.id ?? null)
+      setPausedTodo(null)
+      await refresh()
+    } else {
+      // Soft pause: accumulate pause duration, unfreeze timer
+      if (pausedSinceMsRef.current !== null) {
+        const added = Date.now() - pausedSinceMsRef.current
+        totalPausedMsRef.current += added
+        setTotalPausedMs(totalPausedMsRef.current)
+        pausedSinceMsRef.current = null
+        setPausedSinceMs(null)
+      }
+      setPausedTodo(null)
+    }
+  }, [projectId, currentUser, pausedTodo, pauseSplitSessions, refresh])
 
   const handleClockOut = useCallback(async (
     sessionId: number,
@@ -174,12 +210,23 @@ export default function TimeTab({ projectId, focusTodoId, focusTodoTitle, showOv
     subtaskTitle: string | null
   ) => {
     const todoId = activeSessions.find((s) => s.id === sessionId)?.todo_id ?? null
-    await window.api.time.clockOut(sessionId, note || undefined, subtaskTitle)
+
+    let deductMinutes: number | undefined
+    if (!pauseSplitSessions) {
+      // Include any currently-active pause interval in the deduction
+      let total = totalPausedMsRef.current
+      if (pausedSinceMsRef.current !== null) total += Date.now() - pausedSinceMsRef.current
+      deductMinutes = Math.floor(total / 60_000) || undefined
+      resetSoftPause()
+      setPausedTodo(null)
+    }
+
+    await window.api.time.clockOut(sessionId, note || undefined, subtaskTitle, deductMinutes)
     if (newTaskStatus && currentUser && todoId) {
       await window.api.todos.updateStatus(todoId, newTaskStatus, currentUser.id)
     }
     await refresh()
-  }, [refresh, activeSessions, currentUser])
+  }, [refresh, activeSessions, currentUser, pauseSplitSessions, resetSoftPause])
 
   const handleExport = async () => {
     setExporting(true)
@@ -208,6 +255,85 @@ export default function TimeTab({ projectId, focusTodoId, focusTodoTitle, showOv
 
   return (
     <div className="time-tab">
+
+      {/* Task card — shown when focused on a specific task, always at top */}
+      {focusTodoId && (
+        <div style={{ background: 'var(--accent-bg)', border: '1px solid color-mix(in srgb, var(--accent) 30%, transparent)', borderRadius: 10, overflow: 'hidden', flexShrink: 0 }}>
+          {/* Header */}
+          <div style={{ padding: '12px 16px', borderBottom: '1px solid color-mix(in srgb, var(--accent) 20%, transparent)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+              <span style={{
+                fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 8, flexShrink: 0,
+                color: statusColor, background: `${statusColor}18`, border: `1px solid ${statusColor}44`
+              }}>
+                {STATUS_LABELS[focusTodo?.task_status ?? 'planning'] ?? 'Planning'}
+              </span>
+              <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
+                {focusTodo?.title ?? focusTodoTitle ?? '…'}
+              </span>
+            </div>
+            <button
+              onClick={() => {
+                setEditDesc(focusTodo?.description ?? '')
+                setEditStatus(focusTodo?.task_status ?? 'planning')
+                setEditPriority(focusTodo?.priority ?? 'normal')
+                setShowTaskEdit(true)
+              }}
+              style={{ fontSize: 12, fontWeight: 500, padding: '4px 10px', borderRadius: 6, border: '1px solid var(--border-str)', background: 'var(--surface-rsd)', color: 'var(--text-2)', cursor: 'pointer', flexShrink: 0 }}
+            >
+              Edit task
+            </button>
+          </div>
+
+          {/* Description */}
+          {focusTodo?.description && (
+            <div style={{ padding: '10px 16px', fontSize: 13, color: 'var(--text-2)', lineHeight: 1.6, borderBottom: '1px solid color-mix(in srgb, var(--accent) 20%, transparent)', whiteSpace: 'pre-wrap' }}>
+              {focusTodo.description}
+            </div>
+          )}
+
+          {/* Files */}
+          <div style={{ padding: '10px 16px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Attached files {focusFiles.length > 0 && `(${focusFiles.length})`}
+              </span>
+              <button
+                onClick={handleAddFile}
+                style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 5, border: '1px solid var(--border-str)', background: 'var(--surface-rsd)', color: 'var(--text-2)', cursor: 'pointer' }}
+              >
+                + Add file
+              </button>
+            </div>
+
+            {focusFiles.length === 0 && (
+              <span style={{ fontSize: 12, color: 'var(--text-3)', fontStyle: 'italic' }}>No files attached</span>
+            )}
+
+            {focusFiles.map((f) => (
+              <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 8px', background: 'var(--surface-rsd)', borderRadius: 6, border: '1px solid var(--border)' }}>
+                <span style={{ fontSize: 13, flexShrink: 0 }}>📎</span>
+                <span
+                  style={{ fontSize: 13, color: 'var(--accent)', cursor: 'pointer', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                  title={f.file_path}
+                  onClick={() => {
+                    window.api.fs.openFile(f.file_path)
+                    window.api.recentFiles.record(0, projectId, f.file_path, f.file_name).catch(() => {})
+                  }}
+                >
+                  {f.file_name}
+                </span>
+                <button
+                  onClick={() => handleRemoveFile(f.id)}
+                  title="Remove file"
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, color: 'var(--text-3)', flexShrink: 0, padding: '0 4px', lineHeight: 1 }}
+                >×</button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="time-toolbar">
         <button
           className="time-toolbar-btn"
@@ -252,89 +378,14 @@ export default function TimeTab({ projectId, focusTodoId, focusTodoTitle, showOv
         )
       })()}
 
-      {/* Task card — shown when focused on a specific task */}
-      {focusTodoId && (
-        <div style={{ background: 'var(--accent-bg)', border: '1px solid color-mix(in srgb, var(--accent) 30%, transparent)', borderRadius: 10, marginBottom: 12, overflow: 'hidden' }}>
-          {/* Header */}
-          <div style={{ padding: '12px 16px', borderBottom: '1px solid color-mix(in srgb, var(--accent) 20%, transparent)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-              <span style={{
-                fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 8, flexShrink: 0,
-                color: statusColor, background: `${statusColor}18`, border: `1px solid ${statusColor}44`
-              }}>
-                {STATUS_LABELS[focusTodo?.task_status ?? 'planning'] ?? 'Planning'}
-              </span>
-              <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {focusTodo?.title ?? focusTodoTitle ?? '…'}
-              </span>
-            </div>
-            <button
-              onClick={() => {
-                setEditDesc(focusTodo?.description ?? '')
-                setEditStatus(focusTodo?.task_status ?? 'planning')
-                setEditPriority(focusTodo?.priority ?? 'normal')
-                setShowTaskEdit(true)
-              }}
-              style={{ fontSize: 12, fontWeight: 500, padding: '4px 10px', borderRadius: 6, border: '1px solid var(--border-str)', background: 'var(--surface-rsd)', color: 'var(--text-2)', cursor: 'pointer', flexShrink: 0 }}
-            >
-              Edit task
-            </button>
-          </div>
-
-          {/* Description */}
-          {focusTodo?.description && (
-            <div style={{ padding: '10px 16px', fontSize: 13, color: 'var(--text-2)', lineHeight: 1.6, borderBottom: '1px solid color-mix(in srgb, var(--accent) 20%, transparent)', whiteSpace: 'pre-wrap' }}>
-              {focusTodo.description}
-            </div>
-          )}
-
-          {/* Files */}
-          <div style={{ padding: '10px 16px', display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Attached files {focusFiles.length > 0 && `(${focusFiles.length})`}
-              </span>
-              <button
-                onClick={handleAddFile}
-                style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 5, border: '1px solid var(--border-str)', background: 'var(--surface-rsd)', color: 'var(--text-2)', cursor: 'pointer' }}
-              >
-                + Add file
-              </button>
-            </div>
-
-            {focusFiles.length === 0 && (
-              <span style={{ fontSize: 12, color: 'var(--text-3)', fontStyle: 'italic' }}>No files attached</span>
-            )}
-
-            {focusFiles.map((f) => (
-              <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span
-                  style={{ fontSize: 13, color: 'var(--accent)', cursor: 'pointer', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-                  title={f.file_path}
-                  onClick={() => {
-                    window.api.fs.openFile(f.file_path)
-                    window.api.recentFiles.record(0, projectId, f.file_path, f.file_name).catch(() => {})
-                  }}
-                >
-                  📎 {f.file_name}
-                </span>
-                <button
-                  onClick={() => handleRemoveFile(f.id)}
-                  title="Remove file"
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, color: 'var(--text-3)', flexShrink: 0, padding: '0 2px', lineHeight: 1 }}
-                >×</button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
       <ActiveTimer
         currentUser={currentUser}
         activeSessions={activeSessions}
         focusTodoId={pausedTodo !== null ? pausedTodo.id : focusTodoId}
         focusTodoTitle={pausedTodo !== null ? pausedTodo.title : focusTodoTitle}
         pausedTodo={pausedTodo}
+        totalPausedMs={totalPausedMs}
+        pausedSinceMs={pausedSinceMs}
         onClockIn={handleClockIn}
         onClockOut={handleClockOut}
         onPause={handlePause}

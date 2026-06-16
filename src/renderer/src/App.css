@@ -316,15 +316,36 @@ body {
   flex-shrink: 0;
 }
 
-.cs-add-btn {
-  width: 18px;
-  height: 18px;
+.cs-import-btn {
+  width: 24px;
+  height: 24px;
   background: transparent;
   border: 1px solid #454f6b;
   border-radius: 4px;
   color: #676879;
   cursor: pointer;
-  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+  flex-shrink: 0;
+}
+
+.cs-import-btn:hover {
+  background: #454f6b;
+  color: #c5c7d4;
+  border-color: #454f6b;
+}
+
+.cs-add-btn {
+  width: 24px;
+  height: 24px;
+  background: transparent;
+  border: 1px solid #454f6b;
+  border-radius: 4px;
+  color: #676879;
+  cursor: pointer;
+  font-size: 15px;
   line-height: 1;
   display: flex;
   align-items: center;
@@ -398,8 +419,28 @@ body {
 .cs-client-row.selected .cs-client-name { color: #fff; }
 
 .cs-client-add-proj {
-  width: 18px;
-  height: 18px;
+  width: 24px;
+  height: 24px;
+  background: transparent;
+  border: none;
+  color: #676879;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  border-radius: 4px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.1s, color 0.1s;
+}
+
+.cs-client-row:hover .cs-client-add-proj { display: flex; }
+.cs-client-add-proj:hover { background: #454f6b; color: #c5c7d4; }
+
+.cs-archive-btn {
+  width: 24px;
+  height: 24px;
   background: transparent;
   border: none;
   color: #676879;
@@ -414,38 +455,18 @@ body {
   transition: background 0.1s, color 0.1s;
 }
 
-.cs-client-row:hover .cs-client-add-proj { display: flex; }
-.cs-client-add-proj:hover { background: #454f6b; color: #c5c7d4; }
-
-.cs-archive-btn {
-  width: 18px;
-  height: 18px;
-  background: transparent;
-  border: none;
-  color: #676879;
-  cursor: pointer;
-  font-size: 11px;
-  line-height: 1;
-  border-radius: 4px;
-  display: none;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  transition: background 0.1s, color 0.1s;
-}
-
 .cs-client-row:hover .cs-archive-btn { display: flex; }
 .cs-project-row:hover .cs-archive-btn { display: flex; }
 .cs-archive-btn:hover { background: #454f6b; color: #c5c7d4; }
 
 .cs-info-btn {
-  width: 18px;
-  height: 18px;
+  width: 24px;
+  height: 24px;
   background: transparent;
   border: none;
   color: #676879;
   cursor: pointer;
-  font-size: 11px;
+  font-size: 14px;
   line-height: 1;
   border-radius: 4px;
   display: none;
@@ -1904,9 +1925,9 @@ body {
   background: none;
   border: none;
   cursor: pointer;
-  font-size: 15px;
+  font-size: 18px;
   color: #9699a6;
-  padding: 0 2px;
+  padding: 0 4px;
   line-height: 1;
   opacity: 0;
   transition: opacity 0.15s, color 0.15s;
@@ -3038,11 +3059,11 @@ body {
   background: none;
   border: none;
   cursor: pointer;
-  padding: 2px 4px;
+  padding: 2px 5px;
   opacity: 0;
   transition: opacity 0.15s;
   flex-shrink: 0;
-  font-size: 13px;
+  font-size: 15px;
 }
 
 .todo-item:hover .task-comment-btn { opacity: 1; }
@@ -3255,6 +3276,8 @@ body {
 [data-theme="dark"] .cs-header { border-color: var(--sb-bdr); }
 [data-theme="dark"] .cs-org-name { color: var(--sb-txt-a); }
 [data-theme="dark"] .cs-section-label { color: var(--sb-txt); }
+[data-theme="dark"] .cs-import-btn { border-color: var(--sb-sel); color: var(--sb-txt); }
+[data-theme="dark"] .cs-import-btn:hover { background: var(--sb-sel); color: var(--sb-txt-a); border-color: var(--sb-sel); }
 [data-theme="dark"] .cs-add-btn { border-color: var(--sb-sel); color: var(--sb-txt); }
 [data-theme="dark"] .cs-add-btn:hover { background: var(--sb-sel); color: var(--sb-txt-a); border-color: var(--sb-sel); }
 [data-theme="dark"] .cs-client-row:hover { background: var(--sb-hov); }

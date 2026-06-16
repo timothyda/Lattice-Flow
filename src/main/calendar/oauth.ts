@@ -48,7 +48,14 @@ export function runOAuthFlow(
     server.listen(0, '127.0.0.1', () => {
       const port = (server.address() as AddressInfo).port
       redirectUri = `http://localhost:${port}/callback`
-      shell.openExternal(buildAuthUrl(redirectUri, state, challenge)).catch(reject)
+      const authUrl = buildAuthUrl(redirectUri, state, challenge)
+      try {
+        if (new URL(authUrl).protocol !== 'https:') throw new Error('Non-HTTPS OAuth URL blocked')
+      } catch (e) {
+        reject(e)
+        return
+      }
+      shell.openExternal(authUrl).catch(reject)
     })
 
     server.on('error', reject)

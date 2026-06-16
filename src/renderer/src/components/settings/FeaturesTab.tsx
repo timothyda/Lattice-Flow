@@ -22,6 +22,11 @@ const FEATURES: { key: OrgFeatureKey; label: string; description: string }[] = [
     label: 'Gantt Chart',
     description: 'Show a Gantt timeline on project pages displaying task start and due dates.',
   },
+  {
+    key: 'pause_split_sessions',
+    label: 'Pause Creates New Session',
+    description: 'When a timer is paused, close the current session and start a fresh one on resume. Off by default — pausing silently freezes the timer and resumes the same session.',
+  },
 ]
 
 export default function FeaturesTab({ org, currentUser }: Props): JSX.Element {

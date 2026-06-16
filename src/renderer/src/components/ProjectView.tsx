@@ -231,6 +231,7 @@ function ProjectView({ project, orgFeatures, defaultTab, focusTodoId, focusTodoT
           focusTodoId={activeTodo?.id ?? focusTodoId}
           focusTodoTitle={activeTodo?.title ?? focusTodoTitle}
           showOvertimeAlerts={orgFeatures?.overtime_alerts ?? false}
+          pauseSplitSessions={orgFeatures?.pause_split_sessions ?? false}
           budgetMins={budgetMins}
         />
       ) : (

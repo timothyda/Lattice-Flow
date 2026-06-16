@@ -367,6 +367,7 @@ function App(): JSX.Element {
         onProjectCreated={handleProjectCreated}
         onArchiveClient={handleArchiveClient}
         onArchiveProject={handleArchiveProject}
+        onProjectMoved={loadClients}
       />
 
       {showArchive && (

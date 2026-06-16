@@ -23,13 +23,14 @@ export function clockIn(projectId: number, userId: number, todoId?: number | nul
   return getSession(Number(lastInsertRowid))!
 }
 
-export function clockOut(sessionId: number, note?: string, subtaskTitle?: string | null): TimeSession | undefined {
+export function clockOut(sessionId: number, note?: string, subtaskTitle?: string | null, deductMinutes?: number): TimeSession | undefined {
   const session = getSession(sessionId)
   if (!session || session.ended_at) return session
 
   const nowMs = Date.now()
   const startedAt = new Date(session.started_at.replace(' ', 'T') + 'Z')
-  const durationMinutes = Math.max(0, Math.round((nowMs - startedAt.getTime()) / 60_000))
+  const rawMinutes = Math.round((nowMs - startedAt.getTime()) / 60_000)
+  const durationMinutes = Math.max(0, rawMinutes - (deductMinutes ?? 0))
   const endedAt = new Date(nowMs).toISOString().replace('T', ' ').slice(0, 19)
 
   getDb()

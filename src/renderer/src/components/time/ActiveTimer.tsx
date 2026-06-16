@@ -8,6 +8,8 @@ interface Props {
   focusTodoId?: number | null
   focusTodoTitle?: string | null
   pausedTodo: { id: number | null; title: string | null } | null
+  totalPausedMs?: number
+  pausedSinceMs?: number | null
   onClockIn: (todoId?: number | null) => Promise<void>
   onClockOut: (sessionId: number, note: string, newTaskStatus: TaskStatus | null, subtaskTitle: string | null) => Promise<void>
   onPause: (sessionId: number) => Promise<void>
@@ -32,7 +34,8 @@ function fmtSince(dtStr: string): string {
 
 export default function ActiveTimer({
   currentUser, activeSessions, focusTodoId, focusTodoTitle,
-  pausedTodo, onClockIn, onClockOut, onPause, onResume
+  pausedTodo, totalPausedMs = 0, pausedSinceMs = null,
+  onClockIn, onClockOut, onPause, onResume
 }: Props): JSX.Element {
   const mySession = currentUser
     ? (activeSessions.find((s) => s.user_id === currentUser.id) ?? null)
@@ -43,12 +46,13 @@ export default function ActiveTimer({
   const [busy, setBusy] = useState(false)
   const [showClockOut, setShowClockOut] = useState(false)
 
+  // Keep ticking even during soft-pause so other sessions update; display logic handles the freeze
   useEffect(() => {
     setNow(Date.now())
-    if (!mySession) return
+    if (!mySession && pausedSinceMs === null) return
     const id = setInterval(() => setNow(Date.now()), 1000)
     return () => clearInterval(id)
-  }, [mySession?.id])
+  }, [mySession?.id, pausedSinceMs])
 
   const handleClockIn = async () => {
     setBusy(true)
@@ -71,10 +75,14 @@ export default function ActiveTimer({
     setShowClockOut(false)
   }
 
-  const elapsed = mySession ? now - parseUTC(mySession.started_at).getTime() : 0
+  const rawElapsed = mySession ? now - parseUTC(mySession.started_at).getTime() : 0
+  // For soft-pause: subtract all accumulated paused time. If currently paused, freeze at pause moment.
+  const currentPauseDelta = pausedSinceMs !== null ? now - pausedSinceMs : 0
+  const elapsed = Math.max(0, rawElapsed - totalPausedMs - currentPauseDelta)
   const activeTaskTitle = mySession?.todo_title ?? focusTodoTitle
   const clockInLabel = focusTodoTitle ? `Clock In to "${focusTodoTitle}"` : 'Clock In'
-  const isPaused = !mySession && !!pausedTodo
+  // isPaused is true for both hard-pause (no session) and soft-pause (session still open)
+  const isPaused = !!pausedTodo
 
   return (
     <>
@@ -93,7 +101,28 @@ export default function ActiveTimer({
           )}
         </h3>
 
-        {mySession ? (
+        {isPaused ? (
+          <div className="timer-idle">
+            <p className="timer-idle-msg" style={{ color: '#ff7b00' }}>
+              Paused{pausedTodo?.title ? ` — ${pausedTodo.title}` : ''}
+            </p>
+            {mySession && (
+              <p className="timer-since" style={{ marginBottom: 8 }}>
+                {fmtElapsed(elapsed)} elapsed (excluding pause)
+              </p>
+            )}
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              <button className="timer-btn timer-btn-in" onClick={handleResume} disabled={busy}>
+                {busy ? 'Resuming…' : '▶ Resume'}
+              </button>
+              {mySession && (
+                <button className="timer-btn timer-btn-out" onClick={() => setShowClockOut(true)} disabled={busy}>
+                  Clock Out
+                </button>
+              )}
+            </div>
+          </div>
+        ) : mySession ? (
           <div className="timer-running">
             <div className="timer-display">{fmtElapsed(elapsed)}</div>
             <p className="timer-since">Started at {fmtSince(mySession.started_at)}</p>
@@ -108,17 +137,6 @@ export default function ActiveTimer({
               </button>
               <button className="timer-btn timer-btn-out" onClick={() => setShowClockOut(true)} disabled={busy}>
                 Clock Out
-              </button>
-            </div>
-          </div>
-        ) : isPaused ? (
-          <div className="timer-idle">
-            <p className="timer-idle-msg" style={{ color: '#ff7b00' }}>
-              Paused{pausedTodo?.title ? ` — ${pausedTodo.title}` : ''}
-            </p>
-            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-              <button className="timer-btn timer-btn-in" onClick={handleResume} disabled={busy}>
-                {busy ? 'Resuming…' : '▶ Resume'}
               </button>
             </div>
           </div>

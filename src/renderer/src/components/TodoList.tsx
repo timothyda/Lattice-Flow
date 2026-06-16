@@ -522,16 +522,17 @@ function EditTaskModal({ todo, timeBudgets, nasPath, users, onClose, onSaved }: 
           <label>Attached files <span className="field-optional">(optional)</span></label>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {taskFiles.map((f) => (
-              <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 8px', background: 'var(--accent-bg)', borderRadius: 6, border: '1px solid var(--border)' }}>
+                <span style={{ fontSize: 13, flexShrink: 0 }}>📎</span>
                 <span
-                  style={{ fontSize: 13, color: '#0073ea', cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}
+                  style={{ fontSize: 13, color: '#0073ea', cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0 }}
                   title={f.file_path}
                   onClick={() => {
                     window.api.fs.openFile(f.file_path)
                     window.api.recentFiles.record(0, todo.project_id, f.file_path, f.file_name).catch(() => {})
                   }}
                 >
-                  📎 {f.file_name}
+                  {f.file_name}
                 </span>
                 <button
                   onClick={() => handleRemoveFile(f.id)}
@@ -627,21 +628,26 @@ function TaskDetailModal({ todo, onClose }: { todo: Todo; onClose: () => void })
         {/* Attached files */}
         {taskFiles.length > 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Attached files</div>
-            {taskFiles.map((f) => (
-              <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', background: '#f0f6ff', borderRadius: 6, border: '1px solid #cce0ff' }}>
-                <span
-                  style={{ fontSize: 13, color: '#0073ea', cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}
-                  title={f.file_path}
-                  onClick={() => {
-                    window.api.fs.openFile(f.file_path)
-                    window.api.recentFiles.record(0, todo.project_id, f.file_path, f.file_name).catch(() => {})
-                  }}
-                >
-                  📎 {f.file_name}
-                </span>
-              </div>
-            ))}
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Attached files ({taskFiles.length})
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 120, overflowY: 'auto' }}>
+              {taskFiles.map((f) => (
+                <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', background: 'var(--accent-bg)', borderRadius: 6, border: '1px solid var(--border)' }}>
+                  <span style={{ fontSize: 13, flexShrink: 0 }}>📎</span>
+                  <span
+                    style={{ fontSize: 13, color: '#0073ea', cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0 }}
+                    title={f.file_path}
+                    onClick={() => {
+                      window.api.fs.openFile(f.file_path)
+                      window.api.recentFiles.record(0, todo.project_id, f.file_path, f.file_name).catch(() => {})
+                    }}
+                  >
+                    {f.file_name}
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
@@ -894,7 +900,7 @@ export default function TodoList({ projectId, phaseId, timeBudgets, nasPath, onC
               <button
                 onClick={() => setEditTodo(t)}
                 title="Edit task"
-                style={{ background: 'none', border: 'none', fontSize: 13, color: '#c3c6d4', cursor: 'pointer', padding: '0 2px', opacity: 0, transition: 'opacity 0.15s' }}
+                style={{ background: 'none', border: 'none', fontSize: 16, color: '#c3c6d4', cursor: 'pointer', padding: '0 4px', opacity: 0, transition: 'opacity 0.15s' }}
                 className="task-edit-btn"
               >✎</button>
               <button className="todo-delete" onClick={() => handleDelete(t.id)} title="Delete">×</button>

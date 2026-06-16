@@ -79,7 +79,7 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('auth:logout', () => logout())
   ipcMain.handle('auth:setup-org', async (_e, orgName: string, adminName: string, email: string, password: string) => {
     try { return await setupOrg(orgName, adminName, email, password) }
-    catch (err) { console.error('[auth:setup-org]', err); return { ok: false, error: 'Setup failed.' } }
+    catch (err) { console.error('[auth:setup-org]', err); return { ok: false, error: err instanceof Error ? err.message : 'Setup failed.' } }
   })
   ipcMain.handle('auth:activate', async (_e, email: string, inviteToken: string, newPassword: string) => {
     try { return await activateAccount(email, inviteToken, newPassword) }
@@ -167,8 +167,8 @@ export function registerIpcHandlers(): void {
   // ── Time sessions ──────────────────────────────────────────────────────────
   ipcMain.handle('time:clock-in', (_e, projectId: number, _userId: number, todoId?: number | null) =>
     apiClient.post('/sessions/clock-in', { projectId, todoId }))
-  ipcMain.handle('time:clock-out', (_e, sessionId: number, note?: string, subtaskTitle?: string | null) =>
-    apiClient.post('/sessions/clock-out', { sessionId, note, subtaskTitle }))
+  ipcMain.handle('time:clock-out', (_e, sessionId: number, note?: string, subtaskTitle?: string | null, deductMinutes?: number) =>
+    apiClient.post('/sessions/clock-out', { sessionId, note, subtaskTitle, deductMinutes }))
   ipcMain.handle('time:active-sessions', (_e, projectId: number) => apiClient.get(`/sessions/active/${projectId}`))
   ipcMain.handle('time:sessions-by-project', (_e, projectId: number) => apiClient.get(`/sessions/project/${projectId}`))
   ipcMain.handle('time:sessions-by-todo', (_e, todoId: number) => apiClient.get(`/sessions/todo/${todoId}`))

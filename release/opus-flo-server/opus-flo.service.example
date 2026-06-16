@@ -1,0 +1,26 @@
+# Opus Flo Server — systemd service unit (Option B: Cloud VPS)
+#
+# Install:
+#   sudo cp opus-flo.service.example /etc/systemd/system/opus-flo.service
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now opus-flo
+#
+# Logs:
+#   sudo journalctl -u opus-flo -f
+
+[Unit]
+Description=Opus Flo Server
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/opus-flo-server
+ExecStart=/usr/bin/node dist/index.js
+Restart=on-failure
+RestartSec=5
+EnvironmentFile=/opt/opus-flo-server/.env
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

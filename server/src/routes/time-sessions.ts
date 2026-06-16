@@ -30,8 +30,8 @@ router.post('/clock-in', (req, res) => {
 })
 
 router.post('/clock-out', (req, res) => {
-  const { sessionId, note, subtaskTitle } = req.body
-  res.json(clockOut(Number(sessionId), note, subtaskTitle) ?? null)
+  const { sessionId, note, subtaskTitle, deductMinutes } = req.body
+  res.json(clockOut(Number(sessionId), note, subtaskTitle, deductMinutes ? Number(deductMinutes) : undefined) ?? null)
 })
 
 router.post('/manual', (req, res) => {

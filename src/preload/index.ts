@@ -97,8 +97,8 @@ contextBridge.exposeInMainWorld('api', {
   time: {
     clockIn: (projectId: number, userId: number, todoId?: number | null): Promise<unknown> =>
       ipcRenderer.invoke('time:clock-in', projectId, userId, todoId),
-    clockOut: (sessionId: number, note?: string, subtaskTitle?: string | null): Promise<unknown> =>
-      ipcRenderer.invoke('time:clock-out', sessionId, note, subtaskTitle),
+    clockOut: (sessionId: number, note?: string, subtaskTitle?: string | null, deductMinutes?: number): Promise<unknown> =>
+      ipcRenderer.invoke('time:clock-out', sessionId, note, subtaskTitle, deductMinutes),
     getActiveSessions: (projectId: number): Promise<unknown[]> =>
       ipcRenderer.invoke('time:active-sessions', projectId),
     getSessionsByProject: (projectId: number): Promise<unknown[]> =>
