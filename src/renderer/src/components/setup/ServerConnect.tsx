@@ -2,10 +2,11 @@ import { useState } from 'react'
 
 interface Props {
   onConnected: () => void
+  mode?: 'setup' | 'reconnect'
 }
 
-export default function ServerConnect({ onConnected }: Props): JSX.Element {
-  const [step, setStep] = useState<'guide' | 'connect'>('guide')
+export default function ServerConnect({ onConnected, mode = 'setup' }: Props): JSX.Element {
+  const [step, setStep] = useState<'guide' | 'connect'>(mode === 'reconnect' ? 'connect' : 'guide')
   const [url, setUrl] = useState('')
   const [status, setStatus] = useState<'idle' | 'testing' | 'error'>('idle')
   const [error, setError] = useState('')
@@ -60,7 +61,9 @@ export default function ServerConnect({ onConnected }: Props): JSX.Element {
           }}>LF</div>
           <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-1)' }}>Opus Flo</div>
           <div style={{ fontSize: 14, color: 'var(--text-2)', marginTop: 4 }}>
-            {step === 'guide' ? 'Let\'s get your server set up first.' : 'Connect to your server'}
+            {mode === 'reconnect'
+              ? 'Your server\'s address has changed. Enter the new URL below.'
+              : step === 'guide' ? 'Let\'s get your server set up first.' : 'Connect to your server'}
           </div>
         </div>
 
@@ -176,14 +179,16 @@ export default function ServerConnect({ onConnected }: Props): JSX.Element {
               </button>
             </form>
 
-            <div style={{ textAlign: 'center', marginTop: 16 }}>
-              <button
-                onClick={() => setStep('guide')}
-                style={{ background: 'none', border: 'none', color: 'var(--text-3)', fontSize: 12, cursor: 'pointer', textDecoration: 'underline' }}
-              >
-                ← Back to setup guide
-              </button>
-            </div>
+            {mode !== 'reconnect' && (
+              <div style={{ textAlign: 'center', marginTop: 16 }}>
+                <button
+                  onClick={() => setStep('guide')}
+                  style={{ background: 'none', border: 'none', color: 'var(--text-3)', fontSize: 12, cursor: 'pointer', textDecoration: 'underline' }}
+                >
+                  ← Back to setup guide
+                </button>
+              </div>
+            )}
 
             <div style={{ fontSize: 12, color: 'var(--text-3)', textAlign: 'center', marginTop: 12, lineHeight: 1.5 }}>
               Enter the IP and port of the machine running the Opus Flo server.

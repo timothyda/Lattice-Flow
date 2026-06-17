@@ -1,6 +1,6 @@
 import WebSocket from 'ws'
 import { BrowserWindow } from 'electron'
-import { getServerUrl, getJwt } from './connection-store'
+import { getServerUrl, setServerUrl, getJwt } from './connection-store'
 
 export type ConnectionState =
   | 'no_server'
@@ -33,6 +33,24 @@ export function getConnectionState(): ConnectionState {
   return _state
 }
 
+async function tryLocalhostFallback(): Promise<boolean> {
+  const stored = getServerUrl()
+  if (!stored) return false
+  try {
+    const parsed = new URL(stored)
+    const port = parsed.port
+    if (!port) return false
+    const localUrl = `http://localhost:${port}`
+    if (localUrl === stored) return false
+    const res = await fetch(`${localUrl}/health`, { signal: AbortSignal.timeout(3000) })
+    if (res.ok) {
+      setServerUrl(localUrl)
+      return true
+    }
+  } catch { /* server unreachable */ }
+  return false
+}
+
 export function connect(): void {
   const baseUrl = getServerUrl()
   if (!baseUrl) { emitConnectionState('no_server'); return }
@@ -63,7 +81,14 @@ export function connect(): void {
       return
     }
     if (_retryCount >= MAX_RETRIES) {
-      emitConnectionState('disconnected')
+      tryLocalhostFallback().then((found) => {
+        if (found) {
+          _retryCount = 0
+          connect()
+        } else {
+          emitConnectionState('disconnected')
+        }
+      })
       return
     }
     const delay = RETRY_DELAYS_MS[Math.min(_retryCount, RETRY_DELAYS_MS.length - 1)]

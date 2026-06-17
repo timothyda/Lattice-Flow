@@ -77,8 +77,9 @@ function App(): JSX.Element {
     window.api.connection.getState().then((s) => setConnState(s as ConnState))
     const unsub = window.api.connection.onStateChange((s) => {
       setConnState(s as ConnState)
-      // When auth expires, force re-auth
       if (s === 'auth_expired') { setAuthUser(null); setCurrentUser(null) }
+      // Stop waiting on a load that will never complete
+      if (s === 'disconnected') setOrgLoading(false)
     })
     return unsub
   }, [])
@@ -86,8 +87,8 @@ function App(): JSX.Element {
   // ── Initial load ───────────────────────────────────────────────────────────
 
   useEffect(() => {
-    // Don't attempt to load data until we have a server connection
-    if (connState === 'unknown' || connState === 'no_server' || connState === 'connecting') return
+    // Only load data when fully connected — don't attempt requests against an unreachable server
+    if (connState === 'unknown' || connState === 'no_server' || connState === 'connecting' || connState === 'reconnecting' || connState === 'disconnected') return
     Promise.all([
       window.api.org.get(),
       window.api.auth.status(),
@@ -272,6 +273,22 @@ function App(): JSX.Element {
     return (
       <div className="app" style={{ alignItems: 'center', justifyContent: 'center', background: 'var(--bg-page)' }}>
         <div style={{ color: 'var(--text-2)', fontSize: 14 }}>Connecting to server…</div>
+      </div>
+    )
+  }
+
+  // Server unreachable before any org data was ever loaded
+  if ((connState === 'reconnecting' || connState === 'disconnected') && !org) {
+    if (connState === 'disconnected') {
+      return (
+        <div className="app" style={{ background: 'var(--bg-page)' }}>
+          <ServerConnect onConnected={() => setConnState('connecting')} mode="reconnect" />
+        </div>
+      )
+    }
+    return (
+      <div className="app" style={{ alignItems: 'center', justifyContent: 'center', background: 'var(--bg-page)' }}>
+        <div style={{ color: 'var(--text-2)', fontSize: 14 }}>Reconnecting to server…</div>
       </div>
     )
   }
