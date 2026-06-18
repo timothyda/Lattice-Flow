@@ -424,7 +424,7 @@ export interface AuthUser {
 
 // ── Org Features ──────────────────────────────────────────────────────────────
 
-export type OrgFeatureKey = 'time_budgets' | 'overtime_alerts' | 'gantt_chart'
+export type OrgFeatureKey = 'time_budgets' | 'overtime_alerts' | 'gantt_chart' | 'pause_split_sessions'
 export type OrgFeatures = Record<OrgFeatureKey, boolean>
 
 // ── Recurring Tasks ───────────────────────────────────────────────────────────

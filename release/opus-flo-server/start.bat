@@ -1,5 +1,4 @@
 ﻿@echo off
-cd /d "%~dp0"
 echo Starting Opus Flo Server...
 echo.
 if not exist ".env" (

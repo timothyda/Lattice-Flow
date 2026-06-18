@@ -264,7 +264,7 @@ function App(): JSX.Element {
   if (connState === 'no_server') {
     return (
       <div className="app" style={{ background: 'var(--bg-page)' }}>
-        <ServerConnect onConnected={() => setConnState('connecting')} />
+        <ServerConnect onConnected={() => {}} />
       </div>
     )
   }
@@ -301,7 +301,7 @@ function App(): JSX.Element {
     )
   }
 
-  if (connState === 'auth_expired') {
+  if (connState === 'auth_expired' && !showOrgSetup) {
     return (
       <div className="app" style={{ background: 'var(--bg-page)' }}>
         <SignInView

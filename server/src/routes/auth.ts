@@ -13,7 +13,7 @@ router.post('/login', async (req, res) => {
   const { email, password } = req.body
   if (!email || !password) { res.status(400).json({ error: 'Email and password required' }); return }
   const result = await login(email, password)
-  if (!result.ok) { res.status(401).json(result); return }
+  if (!result.ok) { res.status(400).json(result); return }
   res.json(result)
 })
 

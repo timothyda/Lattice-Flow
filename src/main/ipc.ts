@@ -74,7 +74,7 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('auth:current-user', () => getCurrentUser())
   ipcMain.handle('auth:login', async (_e, email: string, password: string) => {
     try { return await login(email, password) }
-    catch (err) { console.error('[auth:login]', err); return { ok: false, error: 'Unexpected error.' } }
+    catch (err) { console.error('[auth:login]', err); return { ok: false, error: err instanceof Error ? err.message : 'Unexpected error.' } }
   })
   ipcMain.handle('auth:logout', () => logout())
   ipcMain.handle('auth:setup-org', async (_e, orgName: string, adminName: string, email: string, password: string) => {

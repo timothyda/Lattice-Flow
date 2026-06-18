@@ -4,9 +4,8 @@
 # Run from the repo root:  .\scripts\build-server-release.ps1
 
 $ErrorActionPreference = "Stop"
-$nodeVersion = "22.22.3"
-$nodeUrl     = "https://nodejs.org/dist/v$nodeVersion/win-x64/node.exe"
-$nodeCache   = Join-Path $env:TEMP "node-v$nodeVersion-win-x64.exe"
+$nodeVersion = "24.15.0"
+$nodeExe     = (Get-Command node -ErrorAction Stop).Source
 
 $root   = Split-Path $MyInvocation.MyCommand.Path -Parent | Split-Path -Parent
 $server = Join-Path $root "server"
@@ -14,24 +13,17 @@ $out    = Join-Path $root "release"
 
 # ── Verify Node version matches what we bundle ───────────────────────────────
 $activeNode = & node --version 2>&1
-if (-not $activeNode.StartsWith("v22")) {
+if (-not $activeNode.StartsWith("v24")) {
     Write-Host ""
-    Write-Host "ERROR: Node.js v22 must be active to build the server package." -ForegroundColor Red
+    Write-Host "ERROR: Node.js v24 must be active to build the server package." -ForegroundColor Red
     Write-Host "       Currently active: $activeNode" -ForegroundColor Yellow
-    Write-Host "       Run:  nvm use 22  then try again." -ForegroundColor Yellow
+    Write-Host "       Install Node.js 24 LTS from https://nodejs.org" -ForegroundColor Yellow
     Write-Host ""
     exit 1
 }
 Write-Host "Node.js $activeNode active — OK" -ForegroundColor Green
 
-# ── Download Node.js binary (cached after first run) ────────────────────────
-if (-not (Test-Path $nodeCache)) {
-    Write-Host "Downloading Node.js v$nodeVersion..." -ForegroundColor Cyan
-    Invoke-WebRequest -Uri $nodeUrl -OutFile $nodeCache -UseBasicParsing
-    Write-Host "  Saved to $nodeCache" -ForegroundColor Gray
-} else {
-    Write-Host "Using cached Node.js v$nodeVersion" -ForegroundColor Gray
-}
+Write-Host "Using local node.exe: $nodeExe" -ForegroundColor Gray
 
 # ── Reinstall + recompile native addons for current Node version ─────────────
 # npm install alone skips recompilation if better-sqlite3 is already present.
@@ -70,7 +62,7 @@ Copy-Item (Join-Path $server ".env.example") $pkg
 Copy-Item (Join-Path $server "package.json") $pkg
 
 # Bundle node.exe
-Copy-Item $nodeCache (Join-Path $pkg "node.exe")
+Copy-Item $nodeExe (Join-Path $pkg "node.exe")
 Write-Host "  Bundled node.exe (v$nodeVersion)" -ForegroundColor Gray
 
 # ── start.bat — uses bundled node.exe ───────────────────────────────────────
@@ -111,7 +103,7 @@ node dist/index.js
   None — Node.js v22 is bundled. Just extract and run start.bat.
 
 ## Requirements (Mac / Linux)
-  Node.js 22 LTS  (https://nodejs.org)
+  Node.js 24 LTS  (https://nodejs.org)
 
 ## Setup (first time only)
   1. Copy .env.example to .env

@@ -94,6 +94,16 @@ export function connect(): void {
     const delay = RETRY_DELAYS_MS[Math.min(_retryCount, RETRY_DELAYS_MS.length - 1)]
     _retryCount++
     emitConnectionState('reconnecting')
+    // After 2 failed retries (~6 s), try localhost in parallel — recovers quickly on WiFi change
+    if (_retryCount === 2) {
+      tryLocalhostFallback().then((found) => {
+        if (found) {
+          if (_retryTimer) { clearTimeout(_retryTimer); _retryTimer = null }
+          _retryCount = 0
+          connect()
+        }
+      })
+    }
     _retryTimer = setTimeout(connect, delay)
   })
 
